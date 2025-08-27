@@ -61,6 +61,15 @@ class GameService {
         timeRemaining: 30000
       });
 
+      // Broadcast ready message for new round
+      bus.broadcast('roundReady', {
+        roundId: this.currentRound.roundId,
+        status: 'betting'
+      });
+
+      // Broadcast empty players list for new round
+      bus.broadcast('players', []);
+
       // Schedule round settlement
       this.scheduleRoundSettlement();
 
@@ -199,6 +208,9 @@ class GameService {
         downPlayers: this.currentRound.downPoolPlayers
       });
 
+      // Broadcast individual player data
+      this.broadcastPlayersUpdate();
+
       // Broadcast balance updates for both demo and real users
       if (isDemo) {
         bus.broadcast('balanceUpdate', {
@@ -227,6 +239,69 @@ class GameService {
       console.error('Place bet error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Broadcast individual player data to frontend
+   */
+  broadcastPlayersUpdate() {
+    if (!this.currentRound) return;
+
+    // Generate player data from current round bets
+    const players = this.currentRound.bets.map((bet, index) => ({
+      address: bet.address || (bet.isDemo ? `demo-${bet.guestId}` : 'unknown'),
+      avatar: this.generateAvatar(bet, index),
+      country: this.generateCountry(bet, index),
+      bettedBalance: bet.amount,
+      isUpPool: bet.direction === 'up'
+    }));
+
+    console.log('[GameService] Broadcasting players update:', players.length, 'players');
+    console.log('[GameService] Player data:', JSON.stringify(players, null, 2));
+
+    // Broadcast players using the expected message type
+    bus.broadcast('players', players);
+  }
+
+  /**
+   * Generate avatar for player (using UI Avatars service with random names)
+   */
+  generateAvatar(bet, index) {
+    // Generate random names for avatars
+    const firstNames = [
+      'John', 'Jane', 'Mike', 'Sarah', 'David', 'Emily', 'Chris', 'Lisa',
+      'Alex', 'Maria', 'James', 'Anna', 'Robert', 'Emma', 'Daniel', 'Sophia'
+    ];
+    const lastNames = [
+      'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
+      'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas'
+    ];
+    
+    // Use bet address or guestId as seed for consistent randomness per user
+    const seed = bet.address || bet.guestId || index.toString();
+    const seedNum = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    
+    const firstName = firstNames[seedNum % firstNames.length];
+    const lastName = lastNames[(seedNum + 7) % lastNames.length];
+    const fullName = `${firstName}+${lastName}`;
+    
+    // Return UI Avatars URL with random background colors
+    const colors = ['3498db', 'e74c3c', '2ecc71', 'f39c12', '9b59b6', '1abc9c', 'e67e22', '34495e'];
+    const bgColor = colors[seedNum % colors.length];
+    
+    return `https://eu.ui-avatars.com/api/?name=${fullName}&size=250&background=${bgColor}&color=fff&bold=true`;
+  }
+
+  /**
+   * Generate country for player (using index-based mock data)
+   */
+  generateCountry(bet, index) {
+    // Use a set of countries cycling through them
+    const countries = [
+      'US', 'UK', 'CA', 'DE', 'FR', 'JP', 'AU', 'BR', 
+      'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'CH'
+    ];
+    return countries[index % countries.length];
   }
 
   /**
@@ -353,6 +428,8 @@ class GameService {
         endPrice,
         totalPayout: availablePayout,
         winnerCount: winningBets.length,
+        loserCount: losingBets.length,
+        totalPlayers: this.currentRound.bets.length,
         results: this.currentRound.bets.map(bet => ({
           userId: bet.userId,
           guestId: bet.guestId,
@@ -360,6 +437,9 @@ class GameService {
           payout: bet.payout
         }))
       });
+
+      // Clear players list after settlement
+      bus.broadcast('players', []);
 
       // Start new round after short delay
       setTimeout(() => {

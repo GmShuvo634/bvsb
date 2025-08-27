@@ -27,7 +27,9 @@ export const Avatar: React.FC<PlayerProps> = (props) => {
           alt="Avatar"
           src={
             props.avatar
-              ? `${Config.serverUrl.avatars}${props.avatar}`
+              ? props.avatar.startsWith('http') 
+                ? props.avatar 
+                : `${Config.serverUrl.avatars}${props.avatar}`
               : "/images/avatar-default.png"
           }
           className="rounded-full w-9 h-9"
