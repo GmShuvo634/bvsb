@@ -22,6 +22,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(process.env.COOKIE_SECRET || 'dev_cookie_secret'));
 
+// ─── Static file serving for avatars ──────────────────────────────────────────
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+
 // ─── Route mounts ───────────────────────────────────────────────────────────────
 app.use('/api/auth',      authRoutes);
 app.use('/api/user',      userRoutes);

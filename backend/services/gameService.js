@@ -59,6 +59,15 @@ class GameService {
         timeRemaining: 30000
       });
 
+      // Broadcast ready message for new round
+      bus.broadcast('roundReady', {
+        roundId: this.currentRound.roundId,
+        status: 'betting'
+      });
+
+      // Broadcast empty players list for new round
+      bus.broadcast('players', []);
+
       // Schedule round settlement
       this.scheduleRoundSettlement();
 
@@ -182,6 +191,9 @@ class GameService {
         upPlayers: this.currentRound.upPoolPlayers,
         downPlayers: this.currentRound.downPoolPlayers
       });
+
+      // Broadcast individual player data
+      this.broadcastPlayersUpdate();
 
       // Broadcast balance update
       bus.broadcast('balanceUpdate', {
@@ -311,12 +323,17 @@ class GameService {
         endPrice,
         totalPayout: availablePayout,
         winnerCount: winningBets.length,
+        loserCount: losingBets.length,
+        totalPlayers: this.currentRound.bets.length,
         results: this.currentRound.bets.map(bet => ({
           userId: bet.userId,
           result: bet.result,
           payout: bet.payout
         }))
       });
+
+      // Clear players list after settlement
+      bus.broadcast('players', []);
 
       // Start new round after short delay
       setTimeout(() => {
