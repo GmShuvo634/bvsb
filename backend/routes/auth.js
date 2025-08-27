@@ -9,7 +9,11 @@ router.post('/register', authCtrl.register);
 // Log in and receive a JWT
 router.post('/login',    authCtrl.login);
 
-
+// Demo mode endpoints
+const demoCtrl = require('../controllers/demoController');
+router.post('/demo', demoCtrl.startDemo);
+router.get('/demo/status', demoCtrl.getDemoStatus);
+router.post('/demo/reset', demoCtrl.resetDemo);
 
 module.exports = router;
 

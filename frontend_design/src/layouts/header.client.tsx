@@ -508,6 +508,19 @@ export default function Header(props: HeaderProps) {
                 Login
               </button>
               <button
+                onClick={async () => {
+                  try {
+                    await authService.startDemoMode();
+                    toast.success("Demo mode activated!");
+                  } catch (error: any) {
+                    toast.error(error.message || "Failed to start demo mode");
+                  }
+                }}
+                className="px-3 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-lg text-white font-medium text-sm transition-all duration-200"
+              >
+                🎮 Demo
+              </button>
+              <button
                 onClick={() => {
                   setAuthMode('register');
                   setShowAuthModal(true);
@@ -527,6 +540,11 @@ export default function Header(props: HeaderProps) {
                 <div className="text-gray-400 text-xs">
                   Balance: {authService.getFormattedBalance()}
                 </div>
+                {authData?.isDemo && (
+                  <div className="text-purple-400 text-xs">
+                    🎮 Demo Mode
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => {

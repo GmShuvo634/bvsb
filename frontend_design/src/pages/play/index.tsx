@@ -165,8 +165,15 @@ export default function Home() {
       }
       lastBalanceLoad.current = now;
 
-      // Only make API call if user is authenticated
+      // Check if we're in demo mode
       const auth = authService.getAuth();
+      if (auth?.isDemo) {
+        // Use demo jackpot balance from auth service
+        setJackpotBalance(auth.user.balance);
+        return;
+      }
+
+      // Only make API call if user is authenticated (not demo and not guest)
       if (!auth?.isAuthenticated) {
         // For guest users, set a default jackpot balance without error
         setJackpotBalance(1000); // Default guest jackpot balance
@@ -179,8 +186,14 @@ export default function Home() {
     } catch (error) {
       console.error("Balance loading error:", error);
 
-      // Only show error for authenticated users, not guests
+      // Check if we're in demo mode as fallback
       const auth = authService.getAuth();
+      if (auth?.isDemo) {
+        setJackpotBalance(auth.user.balance); // Use auth service balance
+        return;
+      }
+
+      // Only show error for authenticated users, not guests
       if (auth?.isAuthenticated) {
         toast.error("Unable to load jackpot balance");
       } else {
@@ -192,7 +205,7 @@ export default function Home() {
 
   // Load balance when authentication state changes (but only if authenticated)
   useEffect(() => {
-    if (authData?.isAuthenticated) {
+    if (authData?.isAuthenticated || authData?.isDemo) {
       loadBalance();
     } else {
       // For guests, set default balance without API call
@@ -216,9 +229,9 @@ export default function Home() {
 
   useEffect(() => {
     if (localWallet) {
-      // Only load balance if user is authenticated
+      // Only load balance if user is authenticated, demo mode will be handled by auth change effect
       const auth = authService.getAuth();
-      if (auth?.isAuthenticated) {
+      if (auth?.isAuthenticated && !auth?.isDemo) {
         loadBalance();
       }
       loadHistory();
@@ -424,8 +437,18 @@ export default function Home() {
             const d = message.data || message;
             console.log("[Frontend] Balance update received:", d);
 
+            // Handle demo user balance updates
+            if (d.isDemo && d.guestId && authData?.isDemo) {
+              const currentAuth = authService.getAuth();
+              if (currentAuth?.user.id === d.guestId) {
+                console.log("[Frontend] Updating demo balance:", d.balance);
+                authService.updateBalance(d.balance);
+                setJackpotBalance(d.balance); // Also update local state
+                toast.success(`Demo balance updated: ${d.balance}`);
+              }
+            }
             // Handle user balance updates
-            if (d.userId && authData?.user.id === d.userId) {
+            else if (d.userId && authData?.user.id === d.userId) {
               console.log("[Frontend] Updating user balance:", d.balance);
               authService.updateBalance(d.balance);
               setJackpotBalance(d.balance); // Also update local state
@@ -494,7 +517,32 @@ export default function Home() {
     };
   }, []);
 
-
+  // Demo mode: simulate ETH price feed so the graph and Live ETH are not blank
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (authData?.isDemo) {
+      const divisor =
+        (Config as any).ethPriceDecimal ?? (Config as any).btcPriceDecimal ?? 1;
+      // Start near a reasonable ETH price if we have none
+      let last =
+        ethPrices.length > 0
+          ? ethPrices[ethPrices.length - 1]
+          : Math.round(2000 * divisor);
+      interval = setInterval(() => {
+        // random walk with small drift
+        const delta = Math.round(((Math.random() - 0.5) * 5 * divisor) / 100); // ~ +/- 0.05 ETH
+        last = Math.max(1, last + delta);
+        setEthPrices((prev) => {
+          const next = [...prev, last];
+          if (next.length > maxPriceCount) return next.slice(-maxPriceCount);
+          return next;
+        });
+      }, Config.interval.priceUpdate);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [authData?.isDemo]);
 
   useEffect(() => {
     if (newMessage.message) {
@@ -539,7 +587,39 @@ export default function Home() {
     };
   }, [isLoggedIn, lastRoundId]); // Re-run when login status or round changes
 
+  // Balance polling for demo users (less frequent)
+  useEffect(() => {
+    if (!authData?.isDemo) return;
 
+    const balanceInterval = setInterval(async () => {
+      try {
+        const response = await apiCall("/api/bet/balance", {
+          headers: {
+            ...(authData?.token && {
+              Authorization: `Bearer ${authData.token}`,
+            }),
+          },
+        });
+
+        const data = await response.json();
+        if (response.ok && data.balance !== undefined) {
+          const currentBalance = authData?.user.balance || 0;
+          if (data.balance !== currentBalance) {
+            console.log(
+              "[Frontend] Balance updated via polling:",
+              data.balance
+            );
+            setJackpotBalance(data.balance);
+            authService.updateBalance(data.balance);
+          }
+        }
+      } catch (error) {
+        console.error("[Frontend] Balance polling error:", error);
+      }
+    }, 5000); // Poll balance every 5 seconds for demo users
+
+    return () => clearInterval(balanceInterval);
+  }, [authData?.isDemo, authData?.token]);
 
   // Periodic settlement check - check for settlement results every 10 seconds
   useEffect(() => {
@@ -790,8 +870,18 @@ export default function Home() {
       const betPayload = {
         amount: bettedBalance,
         direction: isUp ? "up" : "down",
-        address: address,
+        isDemo: authData?.isDemo || false,
+        guestId: authData?.isDemo ? authData.user.id : undefined,
+        address: authData?.isDemo ? `demo-${authData.user.id}` : address,
       };
+
+      // Optimistic update: immediately deduct bet amount from balance
+      const currentAuth = authService.getAuth();
+      if (currentAuth?.isDemo) {
+        const newBalance = currentBalance - bettedBalance;
+        setJackpotBalance(newBalance);
+        authService.updateBalance(newBalance);
+      }
 
       console.log("[Frontend] Placing bet via REST API:", betPayload);
 
@@ -816,7 +906,9 @@ export default function Home() {
         // Update balance with server response if available
         if (result.balance !== undefined) {
           setJackpotBalance(result.balance);
-          authService.updateBalance(result.balance);
+          if (authData?.isDemo) {
+            authService.updateBalance(result.balance);
+          }
         }
 
         // Trigger round info refresh
@@ -824,6 +916,12 @@ export default function Home() {
       } else {
         console.error("[Frontend] Bet placement failed:", result);
         toast.error(`Bet failed: ${result.error || "Unknown error"}`);
+
+        // Revert optimistic update on failure
+        if (currentAuth?.isDemo) {
+          setJackpotBalance(currentBalance);
+          authService.updateBalance(currentBalance);
+        }
       }
     } catch (error) {
       console.error("[Frontend] Bet placement error:", error);

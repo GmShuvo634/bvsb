@@ -7,12 +7,14 @@ export interface User {
   balance: number;
   avatar?: string;
   country?: string;
+  isDemo?: boolean;
 }
 
 export interface AuthData {
   user: User;
   token: string;
   isAuthenticated: boolean;
+  isDemo?: boolean;
 }
 
 class AuthService {
@@ -82,6 +84,14 @@ class AuthService {
   }
 
   /**
+   * Force clear all cached data and require fresh login
+   */
+  forceClearCache() {
+    this.clearAuth();
+    console.log('Authentication cache cleared - fresh login required');
+  }
+
+  /**
    * Get current authentication data
    */
   getAuth(): AuthData | null {
@@ -102,6 +112,13 @@ class AuthService {
    */
   getUser(): User | null {
     return this.authData?.user || null;
+  }
+
+  /**
+   * Check if user is in demo mode
+   */
+  isDemoMode(): boolean {
+    return this.authData?.isDemo || false;
   }
 
   /**
@@ -130,6 +147,43 @@ class AuthService {
    */
   updateBalance(newBalance: number) {
     this.updateUser({ balance: newBalance });
+  }
+
+  /**
+   * Refresh user data from server
+   */
+  async refreshUserData(): Promise<void> {
+    try {
+      if (!this.authData?.token) {
+        throw new Error('No authentication token available');
+      }
+
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiBaseUrl}/api/user/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.authData.token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh user data');
+      }
+
+      const userData = await response.json();
+
+      // Update user data with fresh data from server
+      this.updateUser({
+        balance: userData.balance,
+        avatar: userData.avatar || '',
+        country: userData.country || '',
+      });
+
+      console.log('User data refreshed:', userData);
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
   }
 
   /**
@@ -192,9 +246,13 @@ class AuthService {
       };
 
       this.setAuth(authData);
+
+      // Refresh user data to ensure we have the latest balance
+      await this.refreshUserData();
+
       soundService.playWinSound();
 
-      return authData;
+      return this.authData || authData;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -253,8 +311,25 @@ class AuthService {
   /**
    * Check if authentication is required for an action
    */
-  requiresAuth(): boolean {
-    return !this.isAuthenticated();
+  requiresAuth(action: 'bet' | 'deposit' | 'withdraw'): boolean {
+    if (!this.isAuthenticated()) {
+      return true;
+    }
+
+    // Demo mode restrictions
+    if (this.isDemoMode()) {
+      switch (action) {
+        case 'deposit':
+        case 'withdraw':
+          return false; // Demo users can't deposit/withdraw real money
+        case 'bet':
+          return false; // Demo users can bet with demo tokens
+        default:
+          return false;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -263,6 +338,8 @@ class AuthService {
   getUserDisplayName(): string {
     const user = this.getUser();
     if (!user) return 'Guest';
+
+    if (user.isDemo) return 'Demo Player';
 
     return user.email.split('@')[0] || 'Player';
   }
@@ -274,7 +351,158 @@ class AuthService {
     const user = this.getUser();
     if (!user) return '0.00';
 
-    return `${user.balance.toFixed(2)}`;
+    const suffix = user.isDemo ? ' Demo' : '';
+    return `${user.balance.toFixed(2)}${suffix}`;
+  }
+
+  /**
+   * Debug method to check current auth state
+   */
+  debugAuthState() {
+    console.log('=== Auth Service Debug ===');
+    console.log('Current auth data:', this.authData);
+    console.log('Is authenticated:', this.isAuthenticated());
+    console.log('Current user:', this.getUser());
+    console.log('Current balance:', this.getUser()?.balance);
+    console.log('Formatted balance:', this.getFormattedBalance());
+    console.log('Token:', this.getToken());
+    console.log('LocalStorage auth:', localStorage.getItem('auth'));
+    console.log('========================');
+  }
+
+  /**
+   * Start demo mode
+   */
+  async startDemoMode(): Promise<AuthData> {
+    try {
+      // Get API base URL from environment
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+
+      const response = await fetch(`${apiBaseUrl}/api/auth/demo`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for guest ID
+      });
+
+      if (!response.ok) {
+        // Check if error response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json();
+          throw new Error(error.error || 'Demo mode failed');
+        } else {
+          throw new Error(`Demo mode failed: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      // Check if success response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Demo mode returned invalid response format');
+      }
+
+      const data = await response.json();
+      const authData: AuthData = {
+        user: {
+          id: data.user.guestId || data.user.id,
+          email: `demo-${(data.user.guestId || data.user.id).slice(0, 8)}@demo.local`,
+          balance: data.user.balance,
+          isDemo: true,
+        },
+        token: data.token,
+        isAuthenticated: true,
+        isDemo: true,
+      };
+
+      this.setAuth(authData);
+      soundService.playNotification();
+
+      return authData;
+    } catch (error) {
+      console.error('Demo mode error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get demo session status
+   */
+  async getDemoStatus(): Promise<any> {
+    try {
+      const response = await fetch('/api/auth/demo/status', {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get demo status error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Reset demo session
+   */
+  async resetDemoMode(): Promise<AuthData> {
+    try {
+      const response = await fetch('/api/auth/demo/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        // Check if error response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json();
+          throw new Error(error.error || 'Demo reset failed');
+        } else {
+          throw new Error(`Demo reset failed: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      // Check if success response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Demo reset returned invalid response format');
+      }
+
+      const data = await response.json();
+      const authData: AuthData = {
+        user: {
+          id: data.user.guestId,
+          email: `demo-${data.user.guestId.slice(0, 8)}@demo.local`,
+          balance: data.user.balance,
+          isDemo: true,
+        },
+        token: data.token,
+        isAuthenticated: true,
+        isDemo: true,
+      };
+
+      this.setAuth(authData);
+      soundService.playNotification();
+
+      return authData;
+    } catch (error) {
+      console.error('Demo reset error:', error);
+      throw error;
+    }
   }
 
 
@@ -286,6 +514,11 @@ class AuthService {
 
 // Singleton instance
 export const authService = new AuthService();
+
+// Expose authService globally for debugging (only in development)
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  (window as any).authService = authService;
+}
 
 // React hook for auth service
 export function useAuth() {

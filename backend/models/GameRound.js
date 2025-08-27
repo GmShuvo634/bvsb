@@ -64,9 +64,11 @@ const gameRoundSchema = new mongoose.Schema({
   // Track all bets in this round
   bets: [{
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    guestId: { type: String },
     address: { type: String },
     amount: { type: Number },
     direction: { type: String, enum: ['up', 'down'] },
+    isDemo: { type: Boolean, default: false },
     timestamp: { type: Date, default: Date.now },
     payout: { type: Number, default: 0 },
     result: { type: String, enum: ['pending', 'win', 'loss'], default: 'pending' }
@@ -78,5 +80,6 @@ const gameRoundSchema = new mongoose.Schema({
 // Indexes for efficient queries
 gameRoundSchema.index({ status: 1, createdAt: -1 });
 gameRoundSchema.index({ 'bets.userId': 1 });
+gameRoundSchema.index({ 'bets.guestId': 1 });
 
 module.exports = mongoose.model('GameRound', gameRoundSchema);
