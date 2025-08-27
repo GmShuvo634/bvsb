@@ -8,11 +8,8 @@ const userSchema = new Schema({
   balance:  { type: Number, default: 0 },
   address:  { type: String, default: '' },
   isAdmin:  { type: Boolean, default: false },
-  // demo/guest fields
-  type:     { type: String, enum: ['real', 'demo'], default: 'real' },
-  guestId:  { type: String, index: true, sparse: true, unique: false },
-  guestOriginalIp: { type: String },
-  demoCreatedAt:   { type: Date },
+  avatar:   { type: String, default: '' },
+  country:  { type: String, default: '' },
 }, { timestamps: true });
 
 // Enable optimistic concurrency to prevent balance races

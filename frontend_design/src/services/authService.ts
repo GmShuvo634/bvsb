@@ -7,14 +7,12 @@ export interface User {
   balance: number;
   avatar?: string;
   country?: string;
-  isDemo?: boolean;
 }
 
 export interface AuthData {
   user: User;
   token: string;
   isAuthenticated: boolean;
-  isDemo?: boolean;
 }
 
 class AuthService {
@@ -33,12 +31,8 @@ class AuthService {
     if (typeof window === 'undefined') return;
 
     try {
-      // Check localStorage first (remember me)
-      let stored = localStorage.getItem('auth');
-      if (!stored) {
-        // Check sessionStorage
-        stored = sessionStorage.getItem('auth');
-      }
+      // Always use localStorage for token storage
+      const stored = localStorage.getItem('auth');
 
       if (stored) {
         const authData = JSON.parse(stored);
@@ -57,18 +51,16 @@ class AuthService {
   /**
    * Set authentication data
    */
-  setAuth(authData: AuthData, remember: boolean = false) {
+  setAuth(authData: AuthData) {
     this.authData = authData;
 
     // Only run on client side
     if (typeof window !== 'undefined') {
-      // Store in appropriate storage
-      const storage = remember ? localStorage : sessionStorage;
-      storage.setItem('auth', JSON.stringify(authData));
+      // Always store in localStorage
+      localStorage.setItem('auth', JSON.stringify(authData));
 
-      // Clear from other storage
-      const otherStorage = remember ? sessionStorage : localStorage;
-      otherStorage.removeItem('auth');
+      // Clear sessionStorage to ensure no old data remains
+      sessionStorage.removeItem('auth');
     }
 
     this.notifyListeners();
@@ -103,12 +95,7 @@ class AuthService {
     return this.authData?.isAuthenticated || false;
   }
 
-  /**
-   * Check if user is in demo mode
-   */
-  isDemoMode(): boolean {
-    return this.authData?.isDemo || false;
-  }
+
 
   /**
    * Get current user
@@ -131,9 +118,8 @@ class AuthService {
     if (this.authData) {
       this.authData.user = { ...this.authData.user, ...userData };
 
-      // Update storage
-      const storage = localStorage.getItem('auth') ? localStorage : sessionStorage;
-      storage.setItem('auth', JSON.stringify(this.authData));
+      // Always update localStorage
+      localStorage.setItem('auth', JSON.stringify(this.authData));
 
       this.notifyListeners();
     }
@@ -180,7 +166,7 @@ class AuthService {
   /**
    * Login with email and password
    */
-  async login(email: string, password: string, remember: boolean = false): Promise<AuthData> {
+  async login(email: string, password: string): Promise<AuthData> {
     try {
       // Get API base URL from environment
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
@@ -205,7 +191,7 @@ class AuthService {
         isAuthenticated: true,
       };
 
-      this.setAuth(authData, remember);
+      this.setAuth(authData);
       soundService.playWinSound();
 
       return authData;
@@ -243,7 +229,7 @@ class AuthService {
         isAuthenticated: true,
       };
 
-      this.setAuth(authData, false); // Don't remember by default for new registrations
+      this.setAuth(authData);
       soundService.playWinSound();
 
       return authData;
@@ -253,140 +239,8 @@ class AuthService {
     }
   }
 
-  /**
-   * Start demo mode
-   */
-  async startDemoMode(): Promise<AuthData> {
-    try {
-      // Get API base URL from environment
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
-      const response = await fetch(`${apiBaseUrl}/api/auth/demo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for guest ID
-      });
 
-      if (!response.ok) {
-        // Check if error response is JSON before parsing
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const error = await response.json();
-          throw new Error(error.error || 'Demo mode failed');
-        } else {
-          throw new Error(`Demo mode failed: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      // Check if success response is JSON before parsing
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Demo mode returned invalid response format');
-      }
-
-      const data = await response.json();
-      const authData: AuthData = {
-        user: {
-          id: data.user.guestId || data.user.id,
-          email: `demo-${(data.user.guestId || data.user.id).slice(0, 8)}@demo.local`,
-          balance: data.user.balance,
-          isDemo: true,
-        },
-        token: data.token,
-        isAuthenticated: true,
-        isDemo: true,
-      };
-
-      this.setAuth(authData, false); // Demo mode is session-only
-      soundService.playNotification();
-
-      return authData;
-    } catch (error) {
-      console.error('Demo mode error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get demo session status
-   */
-  async getDemoStatus(): Promise<any> {
-    try {
-      const response = await fetch('/api/auth/demo/status', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      // Check if response is JSON before parsing
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        return null;
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Get demo status error:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Reset demo session
-   */
-  async resetDemoMode(): Promise<AuthData> {
-    try {
-      const response = await fetch('/api/auth/demo/reset', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        // Check if error response is JSON before parsing
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const error = await response.json();
-          throw new Error(error.error || 'Demo reset failed');
-        } else {
-          throw new Error(`Demo reset failed: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      // Check if success response is JSON before parsing
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Demo reset returned invalid response format');
-      }
-
-      const data = await response.json();
-      const authData: AuthData = {
-        user: {
-          id: data.user.guestId,
-          email: `demo-${data.user.guestId.slice(0, 8)}@demo.local`,
-          balance: data.user.balance,
-          isDemo: true,
-        },
-        token: data.token,
-        isAuthenticated: true,
-        isDemo: true,
-      };
-
-      this.setAuth(authData, false);
-      soundService.playNotification();
-
-      return authData;
-    } catch (error) {
-      console.error('Demo reset error:', error);
-      throw error;
-    }
-  }
 
   /**
    * Logout user
@@ -399,25 +253,8 @@ class AuthService {
   /**
    * Check if authentication is required for an action
    */
-  requiresAuth(action: 'bet' | 'deposit' | 'withdraw'): boolean {
-    if (!this.isAuthenticated()) {
-      return true;
-    }
-
-    // Demo mode restrictions
-    if (this.isDemoMode()) {
-      switch (action) {
-        case 'deposit':
-        case 'withdraw':
-          return false; // Demo users can't deposit/withdraw real money
-        case 'bet':
-          return false; // Demo users can bet with demo tokens
-        default:
-          return false;
-      }
-    }
-
-    return false;
+  requiresAuth(): boolean {
+    return !this.isAuthenticated();
   }
 
   /**
@@ -426,8 +263,6 @@ class AuthService {
   getUserDisplayName(): string {
     const user = this.getUser();
     if (!user) return 'Guest';
-
-    if (user.isDemo) return 'Demo Player';
 
     return user.email.split('@')[0] || 'Player';
   }
@@ -439,9 +274,14 @@ class AuthService {
     const user = this.getUser();
     if (!user) return '0.00';
 
-    const suffix = user.isDemo ? ' Demo' : '';
-    return `${user.balance.toFixed(2)}${suffix}`;
+    return `${user.balance.toFixed(2)}`;
   }
+
+
+
+
+
+
 }
 
 // Singleton instance

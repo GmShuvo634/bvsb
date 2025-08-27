@@ -67,12 +67,8 @@ const AuthModal: React.FC<AuthModalProps> = ({
           isAuthenticated: true
         };
 
-        // Store in localStorage if remember me is checked
-        if (rememberMe) {
-          localStorage.setItem('auth', JSON.stringify(authData));
-        } else {
-          sessionStorage.setItem('auth', JSON.stringify(authData));
-        }
+        // Use authService to store auth data (always in localStorage)
+        authService.setAuth(authData);
 
         soundService.playWinSound();
         toast.success(mode === 'login' ? 'Login successful!' : 'Registration successful!');
@@ -88,20 +84,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleDemoPlay = async () => {
-    soundService.playButtonClick();
 
-    // Use authService for consistent demo authentication
-    try {
-      const authData = await authService.startDemoMode();
-      toast.success('Demo mode activated! You have 1000 demo tokens to play with.');
-      onAuthSuccess(authData);
-      onClose();
-    } catch (error) {
-      console.error('Demo mode request failed:', error);
-      toast.error('Demo mode temporarily unavailable. Please try again.');
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -212,18 +195,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
             </button>
           </div>
 
-          {/* Demo Play */}
-          <div className="border-t border-[#3f404f] pt-4">
-            <button
-              onClick={handleDemoPlay}
-              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg text-white font-semibold transition-all duration-200 transform hover:scale-105"
-            >
-              🎮 Try Demo Mode
-            </button>
-            <p className="text-xs text-gray-500 text-center mt-2">
-              Play with demo tokens - no registration required
-            </p>
-          </div>
+
 
           {/* Close Button */}
           <button
