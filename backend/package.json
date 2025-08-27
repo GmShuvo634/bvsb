@@ -1,0 +1,39 @@
+{
+  "name": "bvsb-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:api\" \"npm:dev:ws\"",
+    "dev:api": "nodemon index.js",
+    "dev:ws": "nodemon --watch server.ts --exec \"ts-node server.ts\"",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "@types/node": "^24.0.15",
+    "axios": "^1.10.0",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "ethers": "^5.7.2",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.8.7",
+    "morgan": "^1.10.0",
+    "node-fetch": "^2.7.0",
+    "typescript": "^5.8.3",
+    "viem": "^2.31.7",
+    "wagmi": "^2.15.6",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "mongodb-memory-server": "^10.1.4",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2"
+  }
+}

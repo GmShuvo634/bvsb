@@ -1,0 +1,73 @@
+// backend/services/contract.js
+
+const fs = require("fs");
+const path = require("path");
+const axios = require("axios");
+const { ethRpcUrl, contractAddress } = require("../config/index");
+const Trade = require("../models/Trade");
+
+// Load ABI from JSON file
+const abiPath = path.resolve(__dirname, "../contracts/BvsBContract.json");
+if (!fs.existsSync(abiPath)) {
+  throw new Error(`ABI file not found at ${abiPath}`);
+}
+const { abi } = JSON.parse(fs.readFileSync(abiPath, "utf8"));
+
+// Initialize ethers.js
+const provider = new ethers.providers.JsonRpcProvider(ethRpcUrl);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+const contract = new ethers.Contract(contractAddress, abi, wallet);
+
+module.exports = {
+  /**
+   * Place a bet:
+   * 1) fetch entry price from your price endpoint
+   * 2) call on-chain placeTrade
+   * 3) record the trade in Mongo with startPrice
+   */
+  placeBet: async (tradeId, amount, direction, expiry) => {
+    // 1) Get entry price
+    const { data } = await axios.get('http://localhost:5002/api/price');
+    const entryPrice = data.ethPrice;
+
+    // 2) On-chain placeTrade
+    const tx = await contract.placeTrade(amount, direction, expiry);
+    const receipt = await tx.wait();
+
+    // 3) Record in Mongo
+    await Trade.findByIdAndUpdate(tradeId, {
+      amount,
+      direction,
+      expiry,
+      startPrice: entryPrice,
+      resolved: false,
+      won: false
+    });
+
+    return receipt;
+  },
+
+  /**
+   * Resolve a trade on-chain (admin only).
+   */
+  withdraw: async (tradeId, won) => {
+    const tx = await contract.resolveTrade(tradeId, won);
+    return await tx.wait();
+  },
+
+  /**
+   * Subscribe to on-chain TradeResolved events and update Mongo.
+   */
+  onBetResolved: (callback) => {
+    contract.on("TradeResolved", async (id, won, payout) => {
+      const tradeIdStr = id.toString();
+      await Trade.findByIdAndUpdate(tradeIdStr, {
+        resolved: true,
+        won,
+        // you may store payout if you wish
+      });
+      callback(tradeIdStr, won, payout.toString());
+    });
+  },
+};
+
