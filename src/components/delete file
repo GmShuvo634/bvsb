@@ -1,0 +1,30 @@
+kk frontend_design/src/components/api.tsx
+import axios from 'axios';
+import { Config } from '@/config';
+
+// 1️⃣ Fund (balance & deposit)
+export function fetchBalance() {
+  return axios.get(`${Config.serverUrl.https}/api/fund`);
+}
+export function deposit(amount: number) {
+  return axios.post(`${Config.serverUrl.https}/api/fund`, { amount });
+}
+
+// 2️⃣ Trades (place, open, history)
+export function placeTrade(isUpPool: boolean, bettedBalance: number) {
+  return axios.post(
+    `${Config.serverUrl.https}/api/trade`,
+    { isUpPool, bettedBalance }
+  );
+}
+export function fetchOpenTrades() {
+  return axios.get(`${Config.serverUrl.https}/api/trade/open`);
+}
+export function fetchTradeHistory() {
+  return axios.get(`${Config.serverUrl.https}/api/trade/history`);
+}
+
+// 3️⃣ ETH Price
+export function fetchEthPrice() {
+  return axios.get(`${Config.serverUrl.https}/api/eth/price`);
+}

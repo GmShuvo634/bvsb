@@ -1,0 +1,55 @@
+// src/components/api.tsx
+import axios from '@/lib/axios'
+
+// 0️⃣ Dashboard stats
+export function getDashboardData() {
+  return axios.get('/api/dashboard')
+}
+
+// 1️⃣ Fund (balance, deposit, withdraw, history)
+export function fetchBalance() {
+  return axios.get('/api/fund');
+}
+export function deposit(amount: number) {
+  return axios.post('/api/fund', { amount });
+}
+export function withdraw(amount: number) {
+  return axios.post('/api/fund/withdraw', { amount });
+}
+export function fetchFundHistory() {
+  return axios.get('/api/fund/history');
+}
+
+// 2️⃣ Trades (place, open, history)
+export function placeTrade(isUpPool: boolean, bettedBalance: number) {
+  return axios.post('/api/trade', { isUpPool, bettedBalance });
+}
+export function fetchOpenTrades() {
+  return axios.get('/api/trade/open');
+}
+export function fetchTradeHistory() {
+  return axios.get('/api/trade/history');
+}
+
+// 3️⃣ ETH Price
+export function fetchEthPrice() {
+  return axios.get('/api/eth/price')
+}
+
+// 4️⃣ Admin: override candle
+//    Accepts either { outcome } or explicit { open, high, low, close }
+export function overrideCandle(payload: {
+  roundId: string
+  outcome?: 'up' | 'down'
+  open?: number
+  high?: number
+  low?: number
+  close?: number
+}) {
+  return axios.post('/api/admin/override-candle', payload)
+}
+
+
+
+
+

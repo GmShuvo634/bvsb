@@ -1,0 +1,535 @@
+
+ .component_title {
+   color: #fff;
+   text-align: center;
+   font-family: Open Sans, sans-serif;
+   font-size: 50px;
+   font-weight: 800;
+   line-height: 50px;
+ }
+
+ .data_text {
+   color: #ffefa8;
+   font-family: Oswald, sans-serif;
+   font-size: 45px;
+   font-weight: 500;
+   line-height: 45px;
+ }
+
+ .data_separator {
+   width: 80%;
+   height: 1px;
+   background-image: linear-gradient(to right, rgba(0, 0, 0, 0), #dad092 50%, rgba(0, 0, 0, 0));
+   margin-top: 15px;
+   margin-bottom: 15px;
+ }
+ .table_details {
+   align-items: center;
+   margin-top: 7.5px;
+   margin-bottom: 7.5px;
+   display: flex;
+ }
+
+ .table_icon {
+   width: 25px;
+   height: 25px;
+   background-color: #121212;
+   border: 0 rgba(48, 44, 61, 0);
+   border-radius: 100%;
+   justify-content: center;
+   align-items: center;
+   display: flex;
+ }
+
+ .table_content {
+   color: #acacac;
+   margin-left: 10px;
+   font-family: Open Sans, sans-serif;
+   font-weight: 400;
+ }
+
+ .title_container {
+   flex-direction: column;
+   align-items: center;
+   display: flex;
+ }
+
+ .jackpot_title {
+   color: #fff2a3;
+   text-align: center;
+   font-family: Open Sans, sans-serif;
+   font-size: 75px;
+   font-weight: 800;
+   line-height: 75px;
+ }
+
+ .image {
+   height: 550px;
+ }
+
+ .block_jackpot {
+   justify-content: center;
+   align-items: center;
+   margin-top: 15px;
+   display: flex;
+   position: relative;
+ }
+
+ .jackpot_details {
+   width: 350px;
+   height: auto;
+   -webkit-backdrop-filter: blur(5px);
+   backdrop-filter: blur(5px);
+   background-color: rgba(0, 0, 0, .54);
+   border: 2px solid #a8a8a8;
+   border-radius: 25px;
+   flex-direction: column;
+   justify-content: center;
+   align-items: center;
+   margin-left: 0;
+   margin-right: 0;
+   padding: 55px 0;
+   display: flex;
+   position: absolute;
+   top: auto;
+   bottom: -3%;
+ }
+
+ .jackpot_sub {
+   width: 500px;
+   margin-top: 0;
+ }
+
+ .separator {
+   width: 380px;
+   height: 1px;
+   background-image: linear-gradient(to right, rgba(0, 0, 0, 0), #dad092 50%, rgba(0, 0, 0, 0));
+   margin-top: 22px;
+   margin-bottom: 22px;
+ }
+
+ .jackpot_description {
+   width: 600px;
+   margin-top: 15px;
+ }
+
+ .detail_sub_text {
+   color: #fff;
+   text-align: center;
+   font-family: Open Sans, sans-serif;
+   font-size: 14px;
+   font-weight: 400;
+   line-height: 20px;
+ }
+
+ .detail_text {
+  color: #fff;
+  text-align: center;
+  font-family: Open Sans, sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 30px;
+}
+
+ .jackpot_text_container {
+   flex-direction: column;
+   justify-content: center;
+   align-items: center;
+   margin-top: 15px;
+   margin-bottom: 15px;
+   display: flex;
+ }
+
+ .section_week_jackpot,
+ .section_monthly_jackpot {
+   flex-direction: column;
+   align-items: center;
+   padding-top: 75px;
+   padding-bottom: 75px;
+   display: flex;
+ }
+
+ .jackpot_bear {
+   width: 350px;
+   height: auto;
+   margin-top: 0;
+   margin-bottom: 37px;
+   position: relative;
+ }
+ .section_keys {
+   flex-direction: column;
+   align-items: center;
+   padding-top: 50px;
+   padding-bottom: 75px;
+   display: flex;
+ }
+
+ .block_benefits {
+   flex-direction: column;
+   justify-content: flex-start;
+   align-items: stretch;
+   margin-top: 75px;
+   margin-bottom: 0;
+   display: flex;
+ }
+
+ .benefits_details {
+   align-items: center;
+   margin-bottom: 0;
+   display: flex;
+ }
+
+ .benefits_icon {
+   width: 45px;
+   height: 45px;
+   background-color: #3db196;
+   border-radius: 12px;
+   justify-content: center;
+   align-items: center;
+   display: flex;
+ }
+
+ .benefits_description {
+   color: #fff;
+   margin-left: 15px;
+   font-family: Oswald, sans-serif;
+   font-size: 20px;
+   font-weight: 500;
+   line-height: 25px;
+ }
+
+ .jackpot_separator-copy {
+   width: 100%;
+   height: 1px;
+   background-image: linear-gradient(to right, #000, #dad092 50%, #000);
+   margin-top: 28px;
+   margin-bottom: 22px;
+ }
+
+ .section_affiliate {
+   flex-direction: column;
+   align-items: center;
+   padding-top: 75px;
+   padding-bottom: 75px;
+   display: flex;
+ }
+
+ .block_affiliate {
+   width: 400px;
+   height: 250px;
+   background-color: #1e1e1e;
+   background-image: linear-gradient(-45deg, #240516, #03211b);
+   border-radius: 15px;
+   flex-direction: column;
+   justify-content: center;
+   align-items: center;
+   margin-top: 75px;
+   margin-bottom: 30px;
+   padding: 15px;
+   display: flex;
+ }
+
+ .affiliate_in {
+   width: 100%;
+   height: 100%;
+   border: 2px solid #473446;
+   border-radius: 15px;
+   flex-direction: column;
+   display: flex;
+   position: relative;
+ }
+
+ .pfp {
+   width: 90px;
+   height: 90px;
+   background-color: #353535;
+   border-radius: 8px;
+   margin: 0;
+   position: static;
+ }
+
+ .top {
+   align-items: center;
+   padding: 15px;
+   display: flex;
+ }
+
+ .lines {
+   height: 90px;
+   flex-direction: column;
+   flex: auto;
+   align-items: flex-start;
+   margin-left: 15px;
+   display: flex;
+ }
+
+ .line1 {
+   width: 35%;
+   height: 7px;
+   background-color: #29252b;
+   margin-top: 8px;
+   margin-bottom: 8px;
+ }
+
+ .line2 {
+   width: 70%;
+   height: 7px;
+   background-color: #29252b;
+   margin-top: 8px;
+   margin-bottom: 8px;
+ }
+
+ .line3 {
+   width: 80%;
+   height: 7px;
+   background-color: #29252b;
+   margin-top: 8px;
+   margin-bottom: 8px;
+ }
+
+ .line4 {
+   width: 100%;
+   height: 7px;
+   background-color: #29252b;
+   margin-top: 8px;
+   margin-bottom: 8px;
+ }
+
+ .separator_affi {
+   width: 100%;
+   height: 1px;
+   background-image: linear-gradient(to right, rgba(0, 0, 0, 0), #956e8e 50%, rgba(0, 0, 0, 0));
+   margin-top: 0;
+   margin-bottom: 0;
+ }
+
+
+ .btm {
+   flex: auto;
+   justify-content: center;
+   align-items: center;
+   display: flex;
+ }
+
+ .card_title {
+   color: #fff;
+   -webkit-text-fill-color: transparent;
+   background-image: linear-gradient(-45deg, #a05b81, #a2e6c6);
+   -webkit-background-clip: text;
+   background-clip: text;
+   font-family: Oswald, sans-serif;
+   font-size: 20px;
+   font-weight: 500;
+   line-height: 20px;
+ }
+
+ .avatar {
+   width: 100%;
+   height: 100%;
+   border-radius: 8px;
+ }
+ .section_polygon {
+   flex-direction: column;
+   align-items: center;
+   padding-top: 75px;
+   padding-bottom: 75px;
+   display: flex;
+ }
+
+ .polygon_gif {
+   width: 300px;
+   height: auto;
+   margin-top: 0;
+   margin-bottom: 37px;
+   position: relative;
+ }
+
+ .polygon_text {
+   flex-direction: column;
+   justify-content: center;
+   align-items: center;
+   margin-top: 15px;
+   margin-bottom: 15px;
+   display: flex;
+ }
+
+ .polygon_description {
+   width: 600px;
+   margin-top: 0;
+ }
+
+ .polygon_sub {
+   width: 500px;
+   margin-top: 15px;
+ }
+
+ .polygon_buttons {
+   justify-content: center;
+   align-items: center;
+   display: flex;
+ }
+
+ .button_polygon {
+   width: 150px;
+   background-image: linear-gradient(to top, #62072d, #ff2d93);
+   border: 2px solid #4e042f;
+   border-radius: 100px;
+   justify-content: center;
+   align-items: center;
+   margin-top: 25px;
+   margin-left: 10px;
+   margin-right: 10px;
+   padding-top: 12px;
+   padding-bottom: 12px;
+   font-family: Open Sans, sans-serif;
+   font-size: 14px;
+   font-weight: 600;
+   line-height: 13px;
+   display: flex;
+   color: white;
+ }
+
+ .button_polygon:hover {
+   border: 2px solid #ff72bb;
+ }
+
+ .benefits_icon_red {
+   width: 45px;
+   height: 45px;
+   background-color: #b13d81;
+   border-radius: 12px;
+   justify-content: center;
+   align-items: center;
+   display: flex;
+ }
+
+ .benefit_seperate {
+   width: 100%;
+   height: 1px;
+   background-image: linear-gradient(to right, #000, #8ca49a 50%, #000);
+   margin-top: 28px;
+   margin-bottom: 22px;
+ }
+
+ .h2_polygon {
+   color: #7b3edb;
+   text-align: center;
+   font-family: Open Sans, sans-serif;
+   font-size: 75px;
+   font-weight: 800;
+   line-height: 75px;
+ }
+
+ .polyseperator {
+   width: 380px;
+   height: 1px;
+   background-image: linear-gradient(to right, #000, #7b3edb 50%, #000);
+   margin-top: 22px;
+   margin-bottom: 22px;
+ }
+
+ .button_polygon_play {
+   width: 150px;
+   background-image: linear-gradient(to top, #00542a, #00ffa2);
+   border: 2px solid #134831;
+   border-radius: 100px;
+   justify-content: center;
+   align-items: center;
+   margin-top: 25px;
+   margin-left: 10px;
+   margin-right: 10px;
+   padding-top: 12px;
+   padding-bottom: 12px;
+   font-family: Open Sans, sans-serif;
+   font-size: 14px;
+   font-weight: 600;
+   line-height: 13px;
+   display: flex;
+   color: white;
+ }
+
+ .button_polygon_play:hover {
+   border-color: #8ef5c8;
+ }
+
+ @media screen and (max-width: 991px) {
+
+   .section_week_jackpot,
+   .section_monthly_jackpot {
+     padding-top: 50px;
+     padding-bottom: 50px;
+   }
+
+   .section_keys {
+     padding-bottom: 50px;
+   }
+
+   .block_benefits {
+     margin-top: 35px;
+   }
+
+   .section_affiliate {
+     padding-top: 50px;
+     padding-bottom: 50px;
+   }
+
+   .block_affiliate {
+     margin-top: 35px;
+   }
+
+   .section_polygon {
+     padding-top: 50px;
+     padding-bottom: 50px;
+   }
+ }
+
+ @media screen and (max-width: 767px) {
+
+   .jackpot_description {
+     width: 100%;
+   }
+ }
+
+ @media screen and (max-width: 479px) {
+   .component_title {
+     font-size: 40px;
+     line-height: 40px;
+   }
+
+   .jackpot_title {
+     font-size: 60px;
+     line-height: 60px;
+   }
+
+   .jackpot_details,
+   .jackpot_sub {
+     width: 100%;
+   }
+
+   .benefits_details {
+     flex-direction: column;
+     justify-content: center;
+   }
+
+   .benefits_description {
+     text-align: center;
+     margin-top: 15px;
+     margin-left: 0;
+     font-size: 20px;
+   }
+
+   .block_affiliate {
+     width: 350px;
+     height: 230px;
+   }
+
+   .polygon_description,
+   .polygon_sub {
+     width: 100%;
+   }
+
+   .h2_polygon {
+     font-size: 60px;
+     line-height: 60px;
+   }
+ }

@@ -1,0 +1,54 @@
+"use client";
+import React from "react";
+import clsx from "clsx";
+
+export interface CheckboxProps {
+  checked?: boolean;
+  defaultChecked?: boolean;
+  onChange?: (checked: boolean) => void;
+  onClick?: () => void;
+  label?: React.ReactNode;
+  className?: string;
+  containerClassName?: string;
+  disabled?: boolean;
+}
+
+/**
+ * Minimal, theme‑free checkbox that mimics the subset of props
+ * we used from @material-tailwind/react's Checkbox.
+ */
+export function Checkbox({
+  checked,
+  defaultChecked,
+  onChange,
+  onClick,
+  label,
+  disabled,
+  className,
+  containerClassName,
+}: CheckboxProps) {
+  return (
+    <label
+      className={clsx(
+        "inline-flex items-center gap-2 cursor-pointer select-none",
+        disabled && "opacity-50 cursor-not-allowed",
+        containerClassName
+      )}
+    >
+      <input
+        type="checkbox"
+        className={clsx(
+          "h-5 w-5 rounded border border-gray-400 bg-black text-yellow-400",
+          className
+        )}
+        checked={checked}
+        defaultChecked={defaultChecked}
+        disabled={disabled}
+        onChange={(e) => onChange?.(e.target.checked)}
+        onClick={onClick}
+      />
+      {label ? <span>{label}</span> : null}
+    </label>
+  );
+}
+export default Checkbox;
