@@ -13,6 +13,8 @@ const betRoutes   = require('./routes/bet');
 const adminRoutes = require('./routes/admin');
 const dashRoutes  = require('./routes/dashboard');
 const ethRoutes   = require('./routes/eth');
+const statsRoutes = require('./routes/stats');
+const leaderboardRoutes = require('./routes/leaderboard');
 const startCron   = require('./cron');
 
 const app = express();
@@ -35,6 +37,8 @@ app.use('/api/bet',       betRoutes);
 app.use('/api/admin',     adminRoutes);
 app.use('/api/dashboard', dashRoutes);
 app.use('/api/eth',       ethRoutes);
+app.use('/api/stats',     statsRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/pool',      require('./routes/pool'));
 
 // ─── Health‑check ──────────────────────────────────────────────────────────────
@@ -75,7 +79,7 @@ wss.on('connection', ws => {
   ws.on('message', async (message) => {
     try {
       console.log('[WS] received:', message.toString());
-      
+
       // Try to decode the message
       let payload;
       try {
@@ -92,7 +96,7 @@ wss.on('connection', ws => {
           // Handle betting through WebSocket
           const gameService = require('./services/gameService');
           const { address, isUpPool, bettedBalance, isDemo, guestId } = data;
-          
+
           try {
             const result = await gameService.placeBet(
               isDemo ? null : data.userId,
@@ -102,7 +106,7 @@ wss.on('connection', ws => {
               isUpPool ? 'up' : 'down',
               isDemo
             );
-            
+
             // Broadcast success (already handled by gameService)
             console.log(`[WS] Bet placed successfully: ${bettedBalance} on ${isUpPool ? 'up' : 'down'}`);
           } catch (error) {
@@ -111,12 +115,12 @@ wss.on('connection', ws => {
           }
           break;
         }
-        
+
         case 'getRoundInfo': {
           // Send current round info to client
           const gameService = require('./services/gameService');
           const roundInfo = gameService.getCurrentRound();
-          
+
           const response = {
             message: {
               id: Date.now(),
@@ -124,11 +128,11 @@ wss.on('connection', ws => {
               data: roundInfo
             }
           };
-          
+
           ws.send(Buffer.from(JSON.stringify(response)).toString('base64'));
           break;
         }
-        
+
         default:
           console.log(`[WS] Unknown message type: ${type}`);
           break;
@@ -175,7 +179,7 @@ wss.on('connection', ws => {
       }
     }
   };
-  
+
   ws.send(Buffer.from(JSON.stringify(welcomeMessage)).toString('base64'));
 });
 

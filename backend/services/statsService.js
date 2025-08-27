@@ -2,6 +2,8 @@
 const User = require('../models/userModel');
 const GameRound = require('../models/GameRound');
 const DemoSession = require('../models/DemoSession');
+const userActivityService = require('./userActivityService');
+const leaderboardCacheService = require('./leaderboardCacheService');
 
 class StatsService {
   /**
@@ -53,18 +55,18 @@ class StatsService {
 
       if (isWin) {
         // Win: increment or start positive streak
-        newCurrentStreak = user.stats.currentStreak >= 0 
-          ? user.stats.currentStreak + 1 
+        newCurrentStreak = user.stats.currentStreak >= 0
+          ? user.stats.currentStreak + 1
           : 1;
-        
+
         // Update best streak if current is better
         if (newCurrentStreak > newBestStreak) {
           newBestStreak = newCurrentStreak;
         }
       } else {
         // Loss: increment or start negative streak
-        newCurrentStreak = user.stats.currentStreak <= 0 
-          ? user.stats.currentStreak - 1 
+        newCurrentStreak = user.stats.currentStreak <= 0
+          ? user.stats.currentStreak - 1
           : -1;
       }
 
@@ -103,7 +105,7 @@ class StatsService {
 
       const totalBets = user.stats.totalBets + 1; // Including the new bet
       const totalVolume = user.stats.totalVolume + newBetAmount;
-      
+
       return Math.round((totalVolume / totalBets) * 100) / 100; // Round to 2 decimals
     } catch (error) {
       console.error('Calculate average bet size error:', error);
@@ -121,8 +123,8 @@ class StatsService {
         const session = await DemoSession.findOne({ guestId: userId });
         if (!session) return null;
 
-        const winRate = session.totalBets > 0 
-          ? Math.round((session.totalWins / session.totalBets) * 100) 
+        const winRate = session.totalBets > 0
+          ? Math.round((session.totalWins / session.totalBets) * 100)
           : 0;
 
         return {
@@ -140,12 +142,12 @@ class StatsService {
       if (!user) return null;
 
       const stats = user.stats || {};
-      const winRate = stats.totalBets > 0 
-        ? Math.round((stats.totalWins / stats.totalBets) * 100) 
+      const winRate = stats.totalBets > 0
+        ? Math.round((stats.totalWins / stats.totalBets) * 100)
         : 0;
 
-      const roi = stats.totalVolume > 0 
-        ? Math.round((stats.totalProfit / stats.totalVolume) * 100) 
+      const roi = stats.totalVolume > 0
+        ? Math.round((stats.totalProfit / stats.totalVolume) * 100)
         : 0;
 
       return {
@@ -171,12 +173,24 @@ class StatsService {
   }
 
   /**
-   * Get leaderboard data
+   * Get time-based leaderboard data (enhanced with caching)
+   */
+  async getTimeBasedLeaderboard(period = 'today', limit = 50) {
+    try {
+      return await leaderboardCacheService.getLeaderboard(period, limit);
+    } catch (error) {
+      console.error('Get time-based leaderboard error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get leaderboard data (original method for backward compatibility)
    */
   async getLeaderboard(type = 'profit', limit = 10) {
     try {
       let sortField = {};
-      
+
       switch (type) {
         case 'profit':
           sortField = { 'stats.totalProfit': -1 };
@@ -195,7 +209,7 @@ class StatsService {
       }
 
       let users;
-      
+
       if (type === 'winrate') {
         // Use aggregation for win rate calculation
         users = await User.aggregate([
@@ -237,8 +251,8 @@ class StatsService {
         totalWins: user.stats?.totalWins || 0,
         totalProfit: user.stats?.totalProfit || 0,
         totalVolume: user.stats?.totalVolume || 0,
-        winRate: user.winRate ? `${Math.round(user.winRate)}%` : 
-                 user.stats?.totalBets > 0 ? 
+        winRate: user.winRate ? `${Math.round(user.winRate)}%` :
+                 user.stats?.totalBets > 0 ?
                  `${Math.round((user.stats.totalWins / user.stats.totalBets) * 100)}%` : '0%',
         bestStreak: user.stats?.bestStreak || 0
       }));

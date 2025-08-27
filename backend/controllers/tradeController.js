@@ -4,6 +4,7 @@ const User             = require('../models/userModel');
 const Round            = require('../models/roundModel');
 const contractService  = require('../services/contractService');
 const withdrawService  = require('../services/withdrawService');
+const userActivityService = require('../services/userActivityService');
 
 // 1) Place a new trade (with demo enforcement + atomic updates)
 exports.createTrade = async (req, res, next) => {
@@ -83,6 +84,30 @@ exports.createTrade = async (req, res, next) => {
       const AuditLog = require('../models/AuditLog');
       await AuditLog.create([{ userId: u._id, guestId: u.guestId, eventType: 'price_selection', amount: -amount, beforeBal: updated.balance + amount, afterBal: updated.balance, metadata: { direction, strikePrice, expiry, startPrice: currentPrice } }], { session });
 
+      // Log user activity (async, don't wait)
+      setImmediate(async () => {
+        try {
+          await userActivityService.logTradeActivity(
+            u.type === 'demo' ? null : u._id,
+            u.type === 'demo' ? (u.guestId || u._id) : null,
+            u.address,
+            {
+              tradeId: t[0]._id,
+              amount,
+              direction,
+              strikePrice,
+              startPrice: currentPrice,
+              balanceBefore: updated.balance + amount,
+              balanceAfter: updated.balance,
+              balanceChange: -amount
+            },
+            'trade_placed'
+          );
+        } catch (error) {
+          console.error('Failed to log trade activity:', error);
+        }
+      });
+
       res.status(201).json(t[0]);
     });
   } catch (err) {
@@ -139,12 +164,39 @@ exports.settleTrade = async (req, res, next) => {
 
     // adjust user balance
     const u = await User.findById(t.user);
+    let payout = 0;
     if (t.result === 'win') {
-      const payout = t.amount * 1.8;
+      payout = t.amount * 1.8;
       u.balance += payout;
       await u.save();
       await withdrawService.distributeWinnings(u._id, payout);
     }
+
+    // Log trade settlement activity (async, don't wait)
+    setImmediate(async () => {
+      try {
+        await userActivityService.logTradeActivity(
+          u.type === 'demo' ? null : u._id,
+          u.type === 'demo' ? (u.guestId || u._id) : null,
+          u.address,
+          {
+            tradeId: t._id,
+            amount: t.amount,
+            direction: t.direction,
+            result: t.result,
+            payout,
+            entryPrice: t.startPrice,
+            exitPrice: price,
+            balanceBefore: u.balance - (t.result === 'win' ? payout : 0),
+            balanceAfter: u.balance,
+            balanceChange: t.result === 'win' ? payout : 0
+          },
+          'trade_settled'
+        );
+      } catch (error) {
+        console.error('Failed to log trade settlement activity:', error);
+      }
+    });
 
     res.json(t);
   } catch (err) {
