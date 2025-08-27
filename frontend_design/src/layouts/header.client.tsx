@@ -541,7 +541,7 @@ export default function Header(props: HeaderProps) {
                   Balance: {authService.getFormattedBalance()}
                 </div>
                 {authData?.isDemo && (
-                  <div className="text-purple-400 text-xs">
+                  <div className="text-purple-400 text-xs font-normal">
                     🎮 Demo Mode
                   </div>
                 )}

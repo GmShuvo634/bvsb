@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     domains: ['eu.ui-avatars.com', 'localhost'],
+    unoptimized: true,
   },
   async headers() {
     return [

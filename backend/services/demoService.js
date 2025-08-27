@@ -4,10 +4,35 @@ const { v4: uuidv4 } = require('uuid');
 
 class DemoService {
   /**
-   * Create a new demo session
+   * Create a new demo session or resume existing one for the same IP
    */
   async createSession(ipAddress, userAgent = '') {
     try {
+      // First, check if there's an existing active session for this IP
+      const existingSession = await DemoSession.findOne({
+        ipAddress,
+        isActive: true,
+        sessionExpiry: { $gt: new Date() }
+      }).sort({ lastActivity: -1 }); // Get the most recent session
+
+      if (existingSession) {
+        // Resume existing session - extend expiry and update activity
+        existingSession.sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        existingSession.lastActivity = new Date();
+        existingSession.userAgent = userAgent; // Update user agent if changed
+        await existingSession.save();
+
+        console.log(`Resumed existing demo session for IP ${ipAddress}: ${existingSession.guestId}, balance: ${existingSession.currentBalance}`);
+
+        return {
+          guestId: existingSession.guestId,
+          balance: existingSession.currentBalance,
+          sessionExpiry: existingSession.sessionExpiry,
+          isResumed: true
+        };
+      }
+
+      // No existing session found, create a new one
       const guestId = uuidv4();
 
       const session = new DemoSession({
@@ -22,14 +47,43 @@ class DemoService {
 
       await session.save();
 
+      console.log(`Created new demo session for IP ${ipAddress}: ${guestId}`);
+
       return {
         guestId,
         balance: session.currentBalance,
-        sessionExpiry: session.sessionExpiry
+        sessionExpiry: session.sessionExpiry,
+        isResumed: false
       };
     } catch (error) {
       console.error('Demo service - Create session error:', error);
       throw new Error('Failed to create demo session');
+    }
+  }
+
+  /**
+   * Get demo session by IP address
+   */
+  async getSessionByIP(ipAddress) {
+    try {
+      const session = await DemoSession.findOne({
+        ipAddress,
+        isActive: true,
+        sessionExpiry: { $gt: new Date() }
+      }).sort({ lastActivity: -1 }); // Get the most recent session
+
+      if (!session) {
+        return null;
+      }
+
+      // Update last activity
+      session.lastActivity = new Date();
+      await session.save();
+
+      return session;
+    } catch (error) {
+      console.error('Demo service - Get session by IP error:', error);
+      return null;
     }
   }
 
