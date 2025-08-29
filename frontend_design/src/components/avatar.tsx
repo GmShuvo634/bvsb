@@ -27,8 +27,8 @@ export const Avatar: React.FC<PlayerProps> = (props) => {
           alt="Avatar"
           src={
             props.avatar
-              ? props.avatar.startsWith('http') 
-                ? props.avatar 
+              ? props.avatar.startsWith('http')
+                ? props.avatar
                 : `${Config.serverUrl.avatars}${props.avatar}`
               : "/images/avatar-default.png"
           }
@@ -53,7 +53,7 @@ export const Avatar: React.FC<PlayerProps> = (props) => {
             props.isUpPool ? "text-[#2dffb5]" : "text-[#ff1616]"
           }`}
         >
-          {props.bettedBalance.toLocaleString(undefined, {
+          {props?.bettedBalance?.toLocaleString(undefined, {
             minimumFractionDigits: 1,
             maximumFractionDigits: 1,
           })}

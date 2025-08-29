@@ -34,7 +34,25 @@ exports.register = async (req, res, next) => {
       console.warn('GuestUserMap upsert failed:', e?.message || e);
     }
 
-    return res.status(201).json({ message: 'Registered' });
+    // Generate JWT token for immediate login after registration
+    const token = jwt.sign(
+      { sub: user._id, isAdmin: user.isAdmin },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    return res.status(201).json({
+      message: 'Registered',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        balance: user.balance,
+        avatar: user.avatar || '',
+        country: user.country || '',
+        isAdmin: user.isAdmin
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -67,8 +85,18 @@ exports.login = async (req, res, next) => {
       { expiresIn: '1d' }
     );
 
-    // 4️⃣ Return the token
-    return res.json({ token });
+    // 4️⃣ Return the token and user data
+    return res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        balance: user.balance,
+        avatar: user.avatar || '',
+        country: user.country || '',
+        isAdmin: user.isAdmin
+      }
+    });
   } catch (err) {
     next(err);
   }

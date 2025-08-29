@@ -8,11 +8,23 @@ const userSchema = new Schema({
   balance:  { type: Number, default: 0 },
   address:  { type: String, default: '' },
   isAdmin:  { type: Boolean, default: false },
-  // demo/guest fields
+  avatar:   { type: String, default: '' },
+  country:  { type: String, default: '' },
   type:     { type: String, enum: ['real', 'demo'], default: 'real' },
-  guestId:  { type: String, index: true, sparse: true, unique: false },
-  guestOriginalIp: { type: String },
-  demoCreatedAt:   { type: Date },
+
+  // User Statistics
+  stats: {
+    totalBets: { type: Number, default: 0 },
+    totalWins: { type: Number, default: 0 },
+    totalLosses: { type: Number, default: 0 },
+    totalVolume: { type: Number, default: 0 }, // Total amount bet
+    totalProfit: { type: Number, default: 0 }, // Net profit/loss
+    biggestWin: { type: Number, default: 0 },
+    currentStreak: { type: Number, default: 0 }, // Current win/loss streak
+    bestStreak: { type: Number, default: 0 }, // Best win streak
+    lastBetDate: { type: Date },
+    averageBetSize: { type: Number, default: 0 }
+  }
 }, { timestamps: true });
 
 // Enable optimistic concurrency to prevent balance races

@@ -1,7 +1,7 @@
 // backend/controllers/adminController.js
 
 const User       = require('../models/userModel')
-const Trade      = require('../models/tradeModel')
+const Trade      = require('../models/Trade')
 const Fund       = require('../models/fund')
 const Withdrawal = require('../models/Withdrawal')
 const Round      = require('../models/roundModel')

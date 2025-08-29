@@ -1,4 +1,4 @@
-"use client";
+
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
@@ -164,16 +164,51 @@ export default function Header(props: HeaderProps) {
     if (auth) {
       setAuthData(auth);
       setIsLoggedIn(auth.isAuthenticated);
+
+      // Update Redux global state with auth data
+      dispatch(setPlayer({
+        address: auth.user.id, // Use user ID as address for now
+        avatar: auth.user.avatar || '',
+        country: auth.user.country || '',
+        balance: auth.user.balance, // This is the key fix!
+        bettedBalance: 0,
+        isUpPool: false,
+        className: '',
+      }));
     }
 
     // Listen for auth changes
     const unsubscribe = authService.subscribe((newAuth) => {
       setAuthData(newAuth);
       setIsLoggedIn(newAuth?.isAuthenticated || false);
+
+      if (newAuth) {
+        // Update Redux global state when auth changes
+        dispatch(setPlayer({
+          address: newAuth.user.id,
+          avatar: newAuth.user.avatar || '',
+          country: newAuth.user.country || '',
+          balance: newAuth.user.balance, // Sync balance from auth service
+          bettedBalance: 0,
+          isUpPool: false,
+          className: '',
+        }));
+      } else {
+        // Clear player data when logged out
+        dispatch(setPlayer({
+          address: '',
+          avatar: '',
+          country: '',
+          balance: 0,
+          bettedBalance: 0,
+          isUpPool: false,
+          className: '',
+        }));
+      }
     });
 
     return unsubscribe;
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (DEMO_MODE) return;
@@ -473,15 +508,6 @@ export default function Header(props: HeaderProps) {
                 Login
               </button>
               <button
-                onClick={() => {
-                  setAuthMode('register');
-                  setShowAuthModal(true);
-                }}
-                className="px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg text-white font-medium text-sm transition-all duration-200"
-              >
-                📝 Register
-              </button>
-              <button
                 onClick={async () => {
                   try {
                     await authService.startDemoMode();
@@ -494,6 +520,16 @@ export default function Header(props: HeaderProps) {
               >
                 🎮 Demo
               </button>
+              <button
+                onClick={() => {
+                  setAuthMode('register');
+                  setShowAuthModal(true);
+                }}
+                className="px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg text-white font-medium text-sm transition-all duration-200"
+              >
+                📝 Register
+              </button>
+
             </div>
           ) : (
             <div className="hidden md:flex flex-row items-center gap-2">
@@ -505,7 +541,7 @@ export default function Header(props: HeaderProps) {
                   Balance: {authService.getFormattedBalance()}
                 </div>
                 {authData?.isDemo && (
-                  <div className="text-purple-400 text-xs">
+                  <div className="text-purple-400 text-xs font-normal">
                     🎮 Demo Mode
                   </div>
                 )}

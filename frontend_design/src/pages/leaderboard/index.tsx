@@ -11,26 +11,38 @@ import { useSelector } from "react-redux";
 import { getDisplayString } from "@/utils/utils";
 
 export default function Home() {
-  
+
   const player = useSelector((state: any) => state.globalState.player);
   const { isConnected } = useAccount();
   const [leaderboardData, setLeaderboardData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const getLeaderboard = React.useCallback(async (type: string) => {
+    setLoading(true);
+    try {
+      const response = await getLeaderboardData(type);
+      console.log('Leaderboard response:', response?.data);
+
+      if (response?.status === 200) {
+        setLeaderboardData(response.data.data || []);
+      } else {
+        toast.error(response?.data?.error || 'Failed to load leaderboard');
+        setLeaderboardData([]);
+      }
+    } catch (error) {
+      console.error('Leaderboard error:', error);
+      toast.error('Failed to load leaderboard');
+      setLeaderboardData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (isConnected) {
       getLeaderboard("today");
     }
-  }, [isConnected]);
-
-  const getLeaderboard = async (type: string) => {
-    const response = await getLeaderboardData(type);
-    console.log((response as any)?.data.data);
-    if (response?.status == 200) {
-      setLeaderboardData((response as any)?.data.data);
-    } else {
-      toast.error(response?.data?.msg);
-    }
-  }
+  }, [isConnected, getLeaderboard]);
 
   return (
     <div className="flex flex-row justify-between w-screen">
@@ -89,33 +101,44 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody className="text-sm font-medium text-neutral-black-700">
-                  {(Array.isArray(leaderboardData)
-                    ? leaderboardData
-                    : []
-                  ).map((item: any, index: number) => {
-                    return (
-                      <tr
-                        key={index}
-                        className="w-full h-14 bg-[#111016] font-oswald text-base text-[#fff699]"
-                      >
-                        <td className="text-center px-6 py-2">
-                          <p>{index+1}</p>
-                        </td>
-                        <td className="text-center px-6 py-2">
-                          <p>{getDisplayString(item.player.address, 4, 4)}</p>
-                        </td>
-                        <td className="text-center px-6 py-2">
-                          <p>{item.totalGames}</p>
-                        </td>
-                        <td className="text-center px-6 py-2">
-                          <p>{item.totalWins}</p>
-                        </td>
-                        <td className="text-center px-6 py-2">
-                          <p>{(item.totalWins / item.totalGames * 100).toFixed(2)}</p>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-8 text-[#fff699]">
+                        Loading leaderboard...
+                      </td>
+                    </tr>
+                  ) : leaderboardData.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-8 text-[#fff699]">
+                        No leaderboard data available
+                      </td>
+                    </tr>
+                  ) : (
+                    leaderboardData.map((item: any, index: number) => {
+                      return (
+                        <tr
+                          key={index}
+                          className="w-full h-14 bg-[#111016] font-oswald text-base text-[#fff699] hover:bg-[#1a1a1a] transition-colors"
+                        >
+                          <td className="text-center px-6 py-2">
+                            <p>{index+1}</p>
+                          </td>
+                          <td className="text-center px-6 py-2">
+                            <p>{getDisplayString(item.player?.address || item.address || 'Unknown', 4, 4)}</p>
+                          </td>
+                          <td className="text-center px-6 py-2">
+                            <p>{item.totalGames || 0}</p>
+                          </td>
+                          <td className="text-center px-6 py-2">
+                            <p>{item.totalWins || 0}</p>
+                          </td>
+                          <td className="text-center px-6 py-2">
+                            <p>{item.totalGames > 0 ? ((item.totalWins / item.totalGames) * 100).toFixed(2) : '0.00'}%</p>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
