@@ -498,6 +498,21 @@ export default function Home() {
             }
             break;
           }
+          case "priceUpdate": {
+            // Universal price updates for all users (authenticated, anonymous, demo, real)
+            const d = message.data || message;
+            if (d && typeof d.price === 'number') {
+              setEthPrices((prev) => {
+                const next = [...prev, d.price];
+                // Maintain price history limit
+                if (next.length > maxPriceCount) {
+                  return next.slice(-maxPriceCount);
+                }
+                return next;
+              });
+            }
+            break;
+          }
           default:
             break;
         }
@@ -517,32 +532,8 @@ export default function Home() {
     };
   }, []);
 
-  // Demo mode: simulate ETH price feed so the graph and Live ETH are not blank
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    if (authData?.isDemo) {
-      const divisor =
-        (Config as any).ethPriceDecimal ?? (Config as any).btcPriceDecimal ?? 1;
-      // Start near a reasonable ETH price if we have none
-      let last =
-        ethPrices.length > 0
-          ? ethPrices[ethPrices.length - 1]
-          : Math.round(2000 * divisor);
-      interval = setInterval(() => {
-        // random walk with small drift
-        const delta = Math.round(((Math.random() - 0.5) * 5 * divisor) / 100); // ~ +/- 0.05 ETH
-        last = Math.max(1, last + delta);
-        setEthPrices((prev) => {
-          const next = [...prev, last];
-          if (next.length > maxPriceCount) return next.slice(-maxPriceCount);
-          return next;
-        });
-      }, Config.interval.priceUpdate);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [authData?.isDemo]);
+  // Price updates now come universally from WebSocket for all users
+  // No need for demo-specific price simulation
 
   useEffect(() => {
     if (newMessage.message) {

@@ -183,11 +183,17 @@ wss.on('connection', ws => {
   ws.send(Buffer.from(JSON.stringify(welcomeMessage)).toString('base64'));
 });
 
+// ─── Initialize Price Feed Service ────────────────────────────────────────────
+const priceFeedService = require('./services/priceFeedService');
+
 // ─── Start listening ───────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5001;
 if (!process.env.JEST_WORKER_ID && process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`HTTP + WS server listening on http://localhost:${PORT}`);
+
+    // Start the continuous price feed service
+    priceFeedService.start();
   });
 }
 
