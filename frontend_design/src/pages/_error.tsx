@@ -1,4 +1,5 @@
 import { NextPageContext } from 'next';
+import Link from 'next/link';
 import React from 'react';
 
 interface ErrorProps {
@@ -28,7 +29,7 @@ function Error({ statusCode, hasGetInitialPropsRun, err }: ErrorProps) {
               : 'Something went wrong'}
           </h2>
         </div>
-        
+
         <p className="text-white mb-6">
           {statusCode === 404
             ? 'The page you are looking for does not exist.'
@@ -36,7 +37,7 @@ function Error({ statusCode, hasGetInitialPropsRun, err }: ErrorProps) {
             ? 'A server error occurred. Please try again later.'
             : 'An unexpected error occurred. Please try again.'}
         </p>
-        
+
         <div className="space-y-3">
           <button
             className="w-full px-4 py-2 bg-[#b66dff] text-white rounded hover:bg-[#9d5ce6] transition-colors font-medium"
@@ -44,20 +45,20 @@ function Error({ statusCode, hasGetInitialPropsRun, err }: ErrorProps) {
           >
             Reload Page
           </button>
-          
+
           <button
             className="w-full px-4 py-2 bg-transparent border border-[#b66dff] text-[#b66dff] rounded hover:bg-[#b66dff] hover:text-white transition-colors font-medium"
             onClick={() => window.history.back()}
           >
             Go Back
           </button>
-          
-          <a
+
+          <Link
             href="/"
             className="block w-full px-4 py-2 bg-transparent border border-[#fff699] text-[#fff699] rounded hover:bg-[#fff699] hover:text-black transition-colors font-medium text-center"
           >
             Go Home
-          </a>
+          </Link>
         </div>
       </div>
     </div>

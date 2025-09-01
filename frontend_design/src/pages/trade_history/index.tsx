@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import TradeHistoryHeader from "@/layouts/trade_history_header";
+import Header from "@/layouts/header";
 import { getUserTrades, getUserBets, getUserStats } from "@/components/api";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
@@ -15,6 +15,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'trades' | 'bets'>('trades');
   const [userStats, setUserStats] = useState<any>(null);
+
+  // Header component state
+  const [isChatView, setIsChatView] = useState(false);
+  const [referralLinkData, setReferralLinkData] = useState<any[]>([]);
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
@@ -71,9 +75,43 @@ export default function Home() {
   return (
     <div className="flex flex-row justify-between w-screen">
       <div className="w-full transition-all duration-1000 ease-in-out">
-        <TradeHistoryHeader
-          avatar={player?.avatar || ''}
+        <Header
+          setChatVisible={() => setIsChatView(!isChatView)}
+          setReferralLinkData={setReferralLinkData}
+          isChatview={isChatView}
+          hiddenChat={true}
         />
+
+        {/* Page Title Section */}
+        <div className="flex flex-col gap-4 w-full bg-[#161721] relative py-4">
+          <div className="main_title">
+            <div className="title_h1">MY HISTORY</div>
+          </div>
+
+          {/* Tab Selector */}
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => setActiveTab('trades')}
+              className={`px-4 py-2 font-semibold rounded-lg ${
+                activeTab === 'trades'
+                  ? 'bg-gradient-to-r from-[#ffe499] to-[#e5c869] text-black'
+                  : 'border-2 border-[#e5c869] text-[#e5c869] hover:border-[#9e8130] hover:text-[#9e8130]'
+              }`}
+            >
+              Trades
+            </button>
+            <button
+              onClick={() => setActiveTab('bets')}
+              className={`px-4 py-2 font-semibold rounded-lg ${
+                activeTab === 'bets'
+                  ? 'bg-gradient-to-r from-[#ffe499] to-[#e5c869] text-black'
+                  : 'border-2 border-[#e5c869] text-[#e5c869] hover:border-[#9e8130] hover:text-[#9e8130]'
+              }`}
+            >
+              Bets
+            </button>
+          </div>
+        </div>
 
         {/* User Stats Summary */}
         {userStats && (

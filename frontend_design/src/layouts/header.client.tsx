@@ -364,6 +364,21 @@ export default function Header(props: HeaderProps) {
               >
                 AFFILIATES
               </button>
+            ) : router.pathname === "/leaderboard" || router.pathname === "/trade_history" ? (
+              <div className="flex gap-2">
+                <Link
+                  href="/play"
+                  className="flex justify-center items-center border-2 border-solid border-[#e5c869] hover:border-[#9e8130] rounded-lg font-open-sans text-xs text-[#e5c869] hover:text-[#9e8130] w-[40px] h-[35px]"
+                >
+                  <Image
+                    src="/images/home/arrow_left.svg"
+                    width={20}
+                    height={20}
+                    alt="Back arrow"
+                    className="w-5 h-5"
+                  />
+                </Link>
+              </div>
             ) : (
               <div className="flex gap-2">
                 <Link
@@ -440,6 +455,15 @@ export default function Header(props: HeaderProps) {
               >
                 WINNERS
               </button>
+            ) : router.pathname === "/leaderboard" || router.pathname === "/trade_history" ? (
+              <div className="flex gap-2">
+                <Link
+                  href="/faq"
+                  className="flex justify-center items-center border-2 border-solid border-[#e5c869] hover:border-[#9e8130] rounded-lg font-open-sans text-xs text-[#e5c869] hover:text-[#9e8130] w-[40px] h-[35px]"
+                >
+                  ?
+                </Link>
+              </div>
             ) : (
               <div className="flex gap-2">
                 <Link

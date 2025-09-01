@@ -15,6 +15,7 @@ const dashRoutes  = require('./routes/dashboard');
 const ethRoutes   = require('./routes/eth');
 const statsRoutes = require('./routes/stats');
 const leaderboardRoutes = require('./routes/leaderboard');
+const jackpotRoutes = require('./routes/jackpot');
 const startCron   = require('./cron');
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api/dashboard', dashRoutes);
 app.use('/api/eth',       ethRoutes);
 app.use('/api/stats',     statsRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/jackpot',   jackpotRoutes);
 app.use('/api/pool',      require('./routes/pool'));
 
 // ─── Health‑check ──────────────────────────────────────────────────────────────

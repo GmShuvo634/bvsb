@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 
 import { useAccount } from "wagmi";
-import LeaderboardHeader from "@/layouts/leaderboard-header";
+import Header from "@/layouts/header";
 import { balanceRequest } from "@/pages/api";
 import { getLeaderboardData } from "@/components/api";
 import { toast } from "react-toastify";
@@ -16,6 +16,10 @@ export default function Home() {
   const { isConnected } = useAccount();
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Header component state
+  const [isChatView, setIsChatView] = useState(false);
+  const [referralLinkData, setReferralLinkData] = useState<any[]>([]);
 
   const getLeaderboard = React.useCallback(async (type: string) => {
     setLoading(true);
@@ -47,9 +51,42 @@ export default function Home() {
   return (
     <div className="flex flex-row justify-between w-screen">
       <div className="w-full transition-all duration-1000 ease-in-out">
-        <LeaderboardHeader
-          avatar={player?.avatar || ''} setSelectedItem={(item) => getLeaderboard(item)}
+        <Header
+          setChatVisible={() => setIsChatView(!isChatView)}
+          setReferralLinkData={setReferralLinkData}
+          isChatview={isChatView}
+          hiddenChat={true}
         />
+
+        {/* Page Title Section */}
+        <div className="flex flex-col gap-4 w-full bg-[#161721] relative py-4">
+          <div className="main_title">
+            <div className="title_h1">LEADERBOARD</div>
+          </div>
+
+          {/* Leaderboard Type Selector */}
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => getLeaderboard("today")}
+              className="px-4 py-2 bg-gradient-to-r from-[#ffe499] to-[#e5c869] hover:from-[#fff3d4] hover:to-[#ffe499] text-black font-semibold rounded-lg"
+            >
+              Today
+            </button>
+            <button
+              onClick={() => getLeaderboard("weekly")}
+              className="px-4 py-2 bg-gradient-to-r from-[#ffe499] to-[#e5c869] hover:from-[#fff3d4] hover:to-[#ffe499] text-black font-semibold rounded-lg"
+            >
+              Weekly
+            </button>
+            <button
+              onClick={() => getLeaderboard("monthly")}
+              className="px-4 py-2 bg-gradient-to-r from-[#ffe499] to-[#e5c869] hover:from-[#fff3d4] hover:to-[#ffe499] text-black font-semibold rounded-lg"
+            >
+              Monthly
+            </button>
+          </div>
+        </div>
+
         <div className="overflow-x-auto w-full">
           <div className="w-full inline-block align-middle">
             <div className="overflow-auto">

@@ -109,6 +109,10 @@ export default function Home() {
   const lastReceiveIdRef = useRef<string | number>();
   const audioRef = useRef<HTMLAudioElement>(null);
   const fetchedHistoryRef = useRef<boolean>(false);
+  const lastRoundReadyIdRef = useRef<string | null>(null); // Track last round ID for toast deduplication
+  const lastRoundToastTimeRef = useRef<number>(0); // Track last toast timestamp for time-based deduplication
+  const lastConnectionToastTimeRef = useRef<number>(0); // Track last connection toast timestamp
+  const isConnectingRef = useRef<boolean>(false); // Track if connection is in progress
 
   // Initialize authentication
   useEffect(() => {
@@ -251,18 +255,50 @@ export default function Home() {
     let manualClose = false;
 
     const connect = () => {
+      // Prevent multiple simultaneous connection attempts
+      if (isConnectingRef.current) {
+        console.log("[Frontend] Connection already in progress, skipping");
+        return;
+      }
+
+      // Check if we already have an active connection
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        console.log("[Frontend] WebSocket already connected, skipping");
+        return;
+      }
+
+      isConnectingRef.current = true;
       const url = buildUrl();
+      console.log("[Frontend] Attempting WebSocket connection to:", url);
       const newSocket = new WebSocket(url);
       setSocket(newSocket);
 
       newSocket.onopen = () => {
-        console.log("[Frontend] WebSocket connected successfully");
+        const currentTime = Date.now();
+        const timeSinceLastToast = currentTime - lastConnectionToastTimeRef.current;
+
+        console.log("[Frontend] WebSocket connected successfully", {
+          timeSinceLastToast,
+          shouldShowToast: timeSinceLastToast > 3000
+        });
+
+        isConnectingRef.current = false;
         if (reconnectTimer) clearTimeout(reconnectTimer);
-        toast.success("Connected to game server");
+
+        // Time-based deduplication for connection toasts (3 second cooldown)
+        const CONNECTION_TOAST_COOLDOWN_MS = 3000;
+        if (timeSinceLastToast > CONNECTION_TOAST_COOLDOWN_MS) {
+          toast.success("Connected to game server");
+          lastConnectionToastTimeRef.current = currentTime;
+          console.log("[Frontend] Showing connection toast");
+        } else {
+          console.log("[Frontend] Suppressing connection toast - within cooldown period");
+        }
       };
 
       newSocket.onclose = () => {
         console.log("[Frontend] WebSocket disconnected");
+        isConnectingRef.current = false;
         setSocket(null);
         if (!manualClose) {
           toast.warning("Connection lost. Reconnecting...");
@@ -272,6 +308,7 @@ export default function Home() {
 
       newSocket.onerror = (error) => {
         console.error("[Frontend] WebSocket error:", error);
+        isConnectingRef.current = false;
         try {
           newSocket?.close();
         } catch {}
@@ -411,7 +448,38 @@ export default function Home() {
             break;
           }
           case "roundReady": {
-            console.log("[Frontend] New round ready for betting");
+            const d = message.data || message;
+            const roundId = d?.roundId;
+            const currentTime = Date.now();
+            const timeSinceLastToast = currentTime - lastRoundToastTimeRef.current;
+
+            // Enhanced debugging
+            console.log("[Frontend] roundReady message received:", {
+              roundId,
+              lastRoundId: lastRoundReadyIdRef.current,
+              timeSinceLastToast,
+              messageData: d,
+              fullMessage: message
+            });
+
+            // Time-based deduplication: Only show toast if enough time has passed (5 seconds)
+            // This handles cases where different backend systems send different round IDs
+            const TOAST_COOLDOWN_MS = 5000; // 5 seconds
+            let shouldShowToast = false;
+
+            if (timeSinceLastToast > TOAST_COOLDOWN_MS) {
+              shouldShowToast = true;
+              lastRoundToastTimeRef.current = currentTime;
+              lastRoundReadyIdRef.current = roundId;
+              console.log("[Frontend] Showing toast - cooldown period passed");
+            } else {
+              console.log("[Frontend] Suppressing toast - within cooldown period", { timeSinceLastToast });
+            }
+
+            if (shouldShowToast) {
+              toast.info("New round started - place your bets!");
+            }
+
             setIsResultReady(false);
 
             // Preserve the current round result as historical data before clearing
@@ -430,7 +498,6 @@ export default function Home() {
             // Fetch recent history to update historical context
             fetchRecentHistory();
 
-            toast.info("New round started - place your bets!");
             break;
           }
           case "balanceUpdate": {
@@ -522,6 +589,7 @@ export default function Home() {
     connect();
     return () => {
       manualClose = true;
+      isConnectingRef.current = false;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       setSocket((prevSocket) => {
         if (prevSocket && prevSocket.readyState === WebSocket.OPEN) {
