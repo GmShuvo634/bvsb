@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import Header from "@/layouts/header";
 import { getReferralReport } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { Pagination } from "@/components/pagination";
 
 export default function Home() {

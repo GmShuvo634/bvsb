@@ -4,7 +4,7 @@ import { useAccount, useConnect, useDisconnect, useNetwork, useSwitchNetwork } f
 import { soundService } from '../services/soundService';
 import { web3Service } from '../services/web3Service';
 import { SUPPORTED_CHAINS } from '../config/tokens';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 interface WalletConnectionProps {
   onConnectionChange?: (isConnected: boolean, address?: string) => void;

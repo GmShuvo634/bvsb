@@ -7,8 +7,7 @@ import React from "react";
 import { Provider } from "react-redux";
 import { store } from "@/store/globalState";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { Toaster } from "sonner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 import { WagmiConfig } from "wagmi";
@@ -36,17 +35,12 @@ export default function App({ Component, pageProps }: AppProps) {
         <Provider store={store}>
           <AuthProvider>
             <ThemeProvider>
-              <ToastContainer
+              <Toaster
                 position="top-right"
-                autoClose={5000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
                 theme="dark"
+                richColors
+                closeButton
+                duration={5000}
               />
               <Component {...pageProps} />
             </ThemeProvider>

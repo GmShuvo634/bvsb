@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useAccount } from "wagmi";
 import Header from "@/layouts/header";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { generateReferral } from "@/components/api";
 
 export default function Home() {

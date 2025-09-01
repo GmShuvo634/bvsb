@@ -11,7 +11,7 @@ import CountUp from "react-countup";
 import clsx from "clsx";
 import { getDisplayString } from "@/utils/utils";
 import JackpotHeader from "@/layouts/jackpot_header";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { Config } from "@/config";
 import { useSelector } from "react-redux";
 import { getWeeklyJackpot } from "@/components/api";

@@ -4,11 +4,13 @@ import React, { useState, useEffect } from "react";
 
 import { useAccount } from "wagmi";
 import Header from "@/layouts/header";
+import ChatPanel, { ChatDataProps } from "@/layouts/chat-panel";
 import { balanceRequest } from "@/pages/api";
 import { getLeaderboardData } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { useSelector } from "react-redux";
 import { getDisplayString } from "@/utils/utils";
+import { Config } from "@/config";
 
 export default function Home() {
 
@@ -20,6 +22,9 @@ export default function Home() {
   // Header component state
   const [isChatView, setIsChatView] = useState(false);
   const [referralLinkData, setReferralLinkData] = useState<any[]>([]);
+
+  // Chat functionality
+  const [chatData, setChatData] = useState<ChatDataProps[]>([]);
 
   const getLeaderboard = React.useCallback(async (type: string) => {
     setLoading(true);
@@ -55,7 +60,7 @@ export default function Home() {
           setChatVisible={() => setIsChatView(!isChatView)}
           setReferralLinkData={setReferralLinkData}
           isChatview={isChatView}
-          hiddenChat={true}
+          hiddenChat={false}
         />
 
         {/* Page Title Section */}
@@ -182,6 +187,17 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Chat Panel Overlay */}
+      {isChatView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="w-full max-w-md mx-4">
+            <ChatPanel
+              onCloseChatRoom={() => setIsChatView(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

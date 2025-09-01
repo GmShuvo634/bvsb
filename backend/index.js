@@ -16,6 +16,7 @@ const ethRoutes   = require('./routes/eth');
 const statsRoutes = require('./routes/stats');
 const leaderboardRoutes = require('./routes/leaderboard');
 const jackpotRoutes = require('./routes/jackpot');
+const chatRoutes = require('./routes/chat');
 const startCron   = require('./cron');
 
 const app = express();
@@ -41,6 +42,7 @@ app.use('/api/eth',       ethRoutes);
 app.use('/api/stats',     statsRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/jackpot',   jackpotRoutes);
+app.use('/api/chat',      chatRoutes);
 app.use('/api/pool',      require('./routes/pool'));
 
 // ─── Health‑check ──────────────────────────────────────────────────────────────
@@ -132,6 +134,49 @@ wss.on('connection', ws => {
           };
 
           ws.send(Buffer.from(JSON.stringify(response)).toString('base64'));
+          break;
+        }
+
+        case 'chatMessage': {
+          // Handle chat message through WebSocket
+          const chatController = require('./controllers/chatController');
+          const { message, address, userId, guestId } = data;
+
+          try {
+            // Create a mock request object for the chat controller
+            const mockReq = {
+              body: { message, roomId: 'global' },
+              user: userId ? { id: userId, address } : null,
+              guestId: guestId,
+              ip: ws._socket?.remoteAddress
+            };
+
+            const mockRes = {
+              status: (code) => mockRes,
+              json: (data) => {
+                if (data.success) {
+                  console.log(`[WS] Chat message sent successfully`);
+                } else {
+                  console.error(`[WS] Chat message failed:`, data.error);
+                  // Send error back to client
+                  const errorResponse = {
+                    message: {
+                      id: Date.now(),
+                      type: 'chatError',
+                      data: { error: data.error }
+                    }
+                  };
+                  ws.send(Buffer.from(JSON.stringify(errorResponse)).toString('base64'));
+                }
+                return mockRes;
+              }
+            };
+
+            // Process the chat message
+            await chatController.sendMessage(mockReq, mockRes);
+          } catch (error) {
+            console.error('[WS] Chat message handling error:', error.message);
+          }
           break;
         }
 

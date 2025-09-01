@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { fetchBalance, withdraw, fetchTradeHistory } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 export default function WalletPanel({ address }: { address: string }) {
   const [balance, setBalance] = useState(0);

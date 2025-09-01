@@ -3,7 +3,7 @@ import { useAccount } from "wagmi";
 import Header from "@/layouts/header";
 
 import { getDashboardData } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import Link from 'next/link'
 
 export default function Home() {

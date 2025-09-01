@@ -20,10 +20,12 @@ import DepositPanel from "@/components/DepositPanel";
 import AuthModal from "@/components/AuthModal";
 import Modal from "@/components/modal";
 import { Config } from "@/config";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { soundService } from "@/services/soundService";
 import { authService, AuthData } from "@/services/authService";
+import { useRoundAudio } from "@/hooks/useRoundAudio";
+import { RoundPhase } from "@/services/soundService";
 import { setIsUpdate } from "@/store/globalState";
 import type { PlayerProps } from "@/components/avatar";
 
@@ -52,6 +54,9 @@ export interface RecentProps {
 
 export default function Home() {
   const dispatch = useDispatch();
+
+  // Round audio integration
+  const roundAudio = useRoundAudio({ enabled: true, autoStartAmbience: true });
 
   // Wagmi hooks for wallet connection
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -109,9 +114,6 @@ export default function Home() {
   const lastReceiveIdRef = useRef<string | number>();
   const audioRef = useRef<HTMLAudioElement>(null);
   const fetchedHistoryRef = useRef<boolean>(false);
-  const lastRoundReadyIdRef = useRef<string | null>(null); // Track last round ID for toast deduplication
-  const lastRoundToastTimeRef = useRef<number>(0); // Track last toast timestamp for time-based deduplication
-  const lastConnectionToastTimeRef = useRef<number>(0); // Track last connection toast timestamp
   const isConnectingRef = useRef<boolean>(false); // Track if connection is in progress
 
   // Initialize authentication
@@ -132,6 +134,28 @@ export default function Home() {
       authService.removeListener(handleAuthChange);
     };
   }, []);
+
+  // Sync round status with audio phases
+  useEffect(() => {
+    const mapStatusToPhase = (status: string): RoundPhase => {
+      switch (status) {
+        case 'betting':
+          return RoundPhase.BETTING;
+        case 'playing':
+          return RoundPhase.PLAYING;
+        case 'settling':
+          return RoundPhase.SETTLING;
+        case 'completed':
+          return RoundPhase.COMPLETED;
+        default:
+          return RoundPhase.WAITING;
+      }
+    };
+
+    const phase = mapStatusToPhase(currentRoundStatus);
+    console.log(`[Frontend] Syncing audio phase: ${currentRoundStatus} -> ${phase}`);
+    roundAudio.setRoundPhase(phase);
+  }, [currentRoundStatus, roundAudio]);
 
   // Initialize wallet connections
   useEffect(() => {
@@ -274,26 +298,13 @@ export default function Home() {
       setSocket(newSocket);
 
       newSocket.onopen = () => {
-        const currentTime = Date.now();
-        const timeSinceLastToast = currentTime - lastConnectionToastTimeRef.current;
-
-        console.log("[Frontend] WebSocket connected successfully", {
-          timeSinceLastToast,
-          shouldShowToast: timeSinceLastToast > 3000
-        });
+        console.log("[Frontend] WebSocket connected successfully");
 
         isConnectingRef.current = false;
         if (reconnectTimer) clearTimeout(reconnectTimer);
 
-        // Time-based deduplication for connection toasts (3 second cooldown)
-        const CONNECTION_TOAST_COOLDOWN_MS = 3000;
-        if (timeSinceLastToast > CONNECTION_TOAST_COOLDOWN_MS) {
-          toast.success("Connected to game server");
-          lastConnectionToastTimeRef.current = currentTime;
-          console.log("[Frontend] Showing connection toast");
-        } else {
-          console.log("[Frontend] Suppressing connection toast - within cooldown period");
-        }
+        // Sonner handles deduplication automatically
+        toast.success("Connected to game server");
       };
 
       newSocket.onclose = () => {
@@ -389,6 +400,9 @@ export default function Home() {
           case "roundSettled": {
             const d = message.data || message;
             if (d) {
+              // Handle round settlement audio
+              roundAudio.handleRoundSettlement();
+
               // Update round result with actual backend data
               const winnerCount = d.winnerCount || 0;
               const loserCount = d.loserCount || 0;
@@ -429,7 +443,7 @@ export default function Home() {
                 );
               }, 8000);
 
-              // Play sound for winners
+              // Play sound for winners/losers
               const currentAuth = authService.getAuth();
               if (currentAuth && d.results) {
                 const userResult = d.results.find((result: any) => {
@@ -440,8 +454,12 @@ export default function Home() {
                   }
                 });
 
-                if (userResult && userResult.result === "win") {
-                  audioRef.current?.play();
+                if (userResult) {
+                  if (userResult.result === "win") {
+                    roundAudio.handleWin();
+                  } else if (userResult.result === "loss") {
+                    roundAudio.handleLoss();
+                  }
                 }
               }
             }
@@ -450,35 +468,18 @@ export default function Home() {
           case "roundReady": {
             const d = message.data || message;
             const roundId = d?.roundId;
-            const currentTime = Date.now();
-            const timeSinceLastToast = currentTime - lastRoundToastTimeRef.current;
 
-            // Enhanced debugging
+            // Handle round start audio
+            roundAudio.handleRoundStart();
+
             console.log("[Frontend] roundReady message received:", {
               roundId,
-              lastRoundId: lastRoundReadyIdRef.current,
-              timeSinceLastToast,
               messageData: d,
               fullMessage: message
             });
 
-            // Time-based deduplication: Only show toast if enough time has passed (5 seconds)
-            // This handles cases where different backend systems send different round IDs
-            const TOAST_COOLDOWN_MS = 5000; // 5 seconds
-            let shouldShowToast = false;
-
-            if (timeSinceLastToast > TOAST_COOLDOWN_MS) {
-              shouldShowToast = true;
-              lastRoundToastTimeRef.current = currentTime;
-              lastRoundReadyIdRef.current = roundId;
-              console.log("[Frontend] Showing toast - cooldown period passed");
-            } else {
-              console.log("[Frontend] Suppressing toast - within cooldown period", { timeSinceLastToast });
-            }
-
-            if (shouldShowToast) {
-              toast.info("New round started - place your bets!");
-            }
+            // Sonner handles deduplication automatically
+            toast.info("New round started - place your bets!");
 
             setIsResultReady(false);
 
@@ -1248,19 +1249,12 @@ export default function Home() {
 
       {/* Chat Panel Overlay */}
       {isChatView && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center lg:hidden">
-          <ChatPanel
-            messages={chatData}
-            sendMessage={(msg) => {
-              if (isConnected)
-                dispatch({
-                  type: Config.socketType.sendMessage,
-                  payload: { address, message: msg },
-                });
-            }}
-            onCloseChatRoom={() => setIsChatView(false)}
-            isConnected={isConnected}
-          />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="w-full max-w-md mx-4">
+            <ChatPanel
+              onCloseChatRoom={() => setIsChatView(false)}
+            />
+          </div>
         </div>
       )}
 

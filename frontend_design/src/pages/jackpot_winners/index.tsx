@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { getHistory, getWinnerHistory } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { Config } from "@/config";
 import { ArrowLeftIcon } from "@heroicons/react/20/solid";
 import { useRouter } from "next/router";

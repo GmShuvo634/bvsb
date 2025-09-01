@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { login, register } from '../components/api';
 import { soundService } from '../services/soundService';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { authService } from '@/services/authService';
 
 interface AuthModalProps {
