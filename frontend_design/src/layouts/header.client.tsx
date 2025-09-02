@@ -1,4 +1,4 @@
-"use client";
+
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
@@ -19,7 +19,7 @@ import { Country } from "@/config/countries";
 import * as api from "@/components/api";
 const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 console.log("🛠️ api module exports:", api);
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { SimpleCheckbox } from "@/components/simple-checkbox";
 import { useDispatch, useSelector } from "react-redux";
 import { setState } from "@/store/tutorialSlice";
@@ -27,6 +27,7 @@ import { setIsUpdate, setPlayer } from '@/store/globalState';
 import SoundControl from "@/components/SoundControl";
 import AuthModal from "@/components/AuthModal";
 import { authService, AuthData } from "@/services/authService";
+import { soundService } from "@/services/soundService";
 
 console.log('🛠️ api exports:', Object.keys(api));
 
@@ -115,7 +116,7 @@ export default function Header(props: HeaderProps) {
   const tutorialState = useSelector((state: any) => state.tutorialState);
   const dispatch = useDispatch();
 
-  const audioRef = useRef(null);
+  // Remove standalone audio ref - using soundService instead
 
   // const [currentCountry, setCurrentCountry] = useState(Country.US);
   const [viewCountries, setViewCountries] = useState(false);
@@ -164,16 +165,51 @@ export default function Header(props: HeaderProps) {
     if (auth) {
       setAuthData(auth);
       setIsLoggedIn(auth.isAuthenticated);
+
+      // Update Redux global state with auth data
+      dispatch(setPlayer({
+        address: auth.user.id, // Use user ID as address for now
+        avatar: auth.user.avatar || '',
+        country: auth.user.country || '',
+        balance: auth.user.balance, // This is the key fix!
+        bettedBalance: 0,
+        isUpPool: false,
+        className: '',
+      }));
     }
 
     // Listen for auth changes
     const unsubscribe = authService.subscribe((newAuth) => {
       setAuthData(newAuth);
       setIsLoggedIn(newAuth?.isAuthenticated || false);
+
+      if (newAuth) {
+        // Update Redux global state when auth changes
+        dispatch(setPlayer({
+          address: newAuth.user.id,
+          avatar: newAuth.user.avatar || '',
+          country: newAuth.user.country || '',
+          balance: newAuth.user.balance, // Sync balance from auth service
+          bettedBalance: 0,
+          isUpPool: false,
+          className: '',
+        }));
+      } else {
+        // Clear player data when logged out
+        dispatch(setPlayer({
+          address: '',
+          avatar: '',
+          country: '',
+          balance: 0,
+          bettedBalance: 0,
+          isUpPool: false,
+          className: '',
+        }));
+      }
     });
 
     return unsubscribe;
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (DEMO_MODE) return;
@@ -316,9 +352,14 @@ export default function Header(props: HeaderProps) {
       <div className="relative z-20 flex flex-row justify-between w-full px-2 sm:px-8">
         <Logo />
         <div className="h-[58px] flex sm:hidden flex-row items-center">
-          <button className="border-2 border-solid border-[#3f404f] hover:border-[#7074b9] rounded-lg bg-gradient-to-t from-[#181923] to-[#292a3a] w-[35px] h-[35px] flex flex-row items-center justify-center">
-            <Icon type={IconType.CHAT} className="w-5 h-5 fill-white" />
-          </button>
+          {!hiddenChat && (
+            <button
+              onClick={setChatVisible}
+              className="border-2 border-solid border-[#3f404f] hover:border-[#7074b9] rounded-lg bg-gradient-to-t from-[#181923] to-[#292a3a] w-[35px] h-[35px] flex flex-row items-center justify-center"
+            >
+              <Icon type={IconType.CHAT} className="w-5 h-5 fill-white" />
+            </button>
+          )}
         </div>
         <div className="absolute top-0 flex flex-row items-start gap-2 -translate-x-1/2 left-1/2">
           <div className="h-[58px] hidden lg:flex flex-row justify-end items-center w-1/3">
@@ -329,6 +370,21 @@ export default function Header(props: HeaderProps) {
               >
                 AFFILIATES
               </button>
+            ) : router.pathname === "/leaderboard" || router.pathname === "/trade_history" ? (
+              <div className="flex gap-2">
+                <Link
+                  href="/play"
+                  className="flex justify-center items-center border-2 border-solid border-[#e5c869] hover:border-[#9e8130] rounded-lg font-open-sans text-xs text-[#e5c869] hover:text-[#9e8130] w-[40px] h-[35px]"
+                >
+                  <Image
+                    src="/images/home/arrow_left.svg"
+                    width={20}
+                    height={20}
+                    alt="Back arrow"
+                    className="w-5 h-5"
+                  />
+                </Link>
+              </div>
             ) : (
               <div className="flex gap-2">
                 <Link
@@ -405,6 +461,15 @@ export default function Header(props: HeaderProps) {
               >
                 WINNERS
               </button>
+            ) : router.pathname === "/leaderboard" || router.pathname === "/trade_history" ? (
+              <div className="flex gap-2">
+                <Link
+                  href="/faq"
+                  className="flex justify-center items-center border-2 border-solid border-[#e5c869] hover:border-[#9e8130] rounded-lg font-open-sans text-xs text-[#e5c869] hover:text-[#9e8130] w-[40px] h-[35px]"
+                >
+                  ?
+                </Link>
+              </div>
             ) : (
               <div className="flex gap-2">
                 <Link
@@ -473,15 +538,6 @@ export default function Header(props: HeaderProps) {
                 Login
               </button>
               <button
-                onClick={() => {
-                  setAuthMode('register');
-                  setShowAuthModal(true);
-                }}
-                className="px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg text-white font-medium text-sm transition-all duration-200"
-              >
-                📝 Register
-              </button>
-              <button
                 onClick={async () => {
                   try {
                     await authService.startDemoMode();
@@ -494,6 +550,16 @@ export default function Header(props: HeaderProps) {
               >
                 🎮 Demo
               </button>
+              <button
+                onClick={() => {
+                  setAuthMode('register');
+                  setShowAuthModal(true);
+                }}
+                className="px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg text-white font-medium text-sm transition-all duration-200"
+              >
+                📝 Register
+              </button>
+
             </div>
           ) : (
             <div className="hidden md:flex flex-row items-center gap-2">
@@ -505,7 +571,7 @@ export default function Header(props: HeaderProps) {
                   Balance: {authService.getFormattedBalance()}
                 </div>
                 {authData?.isDemo && (
-                  <div className="text-purple-400 text-xs">
+                  <div className="text-purple-400 text-xs font-normal">
                     🎮 Demo Mode
                   </div>
                 )}
@@ -918,7 +984,9 @@ export default function Header(props: HeaderProps) {
             <button
               className="rounded-lg text-base font-oswald font-semibold leading-3 text-black bg-gradient-to-r from-[#ffe499] to-[#e5c869] hover:from-[#fff3d4] hover:to-[#ffe499] w-[140px] h-[40px] overflow-hidden flex flex-row items-center justify-center uppercase"
               onClick={() => {
-                (audioRef as any).current.play();
+                // Initialize sound service and start ambience
+                soundService.initializeWithUserInteraction();
+                soundService.startAmbience();
                 setIsOpenSoundEffectModal(false);
                 dispatch(setState(true));
                 if (localStorage.getItem("tutorial") === null || localStorage.getItem("tutorial") === "true") {
@@ -932,9 +1000,7 @@ export default function Header(props: HeaderProps) {
           </div>
         </div>
       </Modal>
-      <audio ref={audioRef} loop>
-        <source src="/audio/ambience.mp3" type="audio/mpeg" />
-      </audio>
+      {/* Audio is now handled by soundService */}
       <Modal
         isOpen={isOpenMsgPool}
         onClose={() => setIsOpenMsgPool(false)}

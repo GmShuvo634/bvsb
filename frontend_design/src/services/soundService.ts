@@ -4,7 +4,18 @@ export enum SoundType {
   LOSE = 'lose',
   BUTTON_CLICK = 'button_click',
   AMBIENCE = 'ambience',
-  NOTIFICATION = 'notification'
+  NOTIFICATION = 'notification',
+  ROUND_START = 'round_start',
+  BETTING_END = 'betting_end',
+  ROUND_SETTLE = 'round_settle'
+}
+
+export enum RoundPhase {
+  WAITING = 'waiting',
+  BETTING = 'betting',
+  PLAYING = 'playing',
+  SETTLING = 'settling',
+  COMPLETED = 'completed'
 }
 
 interface SoundConfig {
@@ -18,6 +29,8 @@ class SoundService {
   private isMuted: boolean = false;
   private masterVolume: number = 0.7;
   private isInitialized: boolean = false;
+  private currentRoundPhase: RoundPhase = RoundPhase.WAITING;
+  private ambienceVolumeMultiplier: number = 1.0;
 
   private soundConfigs: Record<SoundType, SoundConfig> = {
     [SoundType.WIN]: {
@@ -44,6 +57,21 @@ class SoundService {
       src: '/audio/winner.mp3', // Using same file for now, can be changed
       volume: 0.5,
       loop: false
+    },
+    [SoundType.ROUND_START]: {
+      src: '/audio/winner.mp3', // Using same file for now, can be changed
+      volume: 0.6,
+      loop: false
+    },
+    [SoundType.BETTING_END]: {
+      src: '/audio/winner.mp3', // Using same file for now, can be changed
+      volume: 0.5,
+      loop: false
+    },
+    [SoundType.ROUND_SETTLE]: {
+      src: '/audio/winner.mp3', // Using same file for now, can be changed
+      volume: 0.7,
+      loop: false
     }
   };
 
@@ -61,7 +89,7 @@ class SoundService {
         audio.volume = config.volume * this.masterVolume;
         audio.loop = config.loop;
         audio.preload = 'auto';
-        
+
         // Handle loading errors gracefully
         audio.addEventListener('error', (e) => {
           console.warn(`Failed to load sound: ${type}`, e);
@@ -113,10 +141,10 @@ class SoundService {
     try {
       // Reset audio to beginning
       audio.currentTime = 0;
-      
+
       // Play the sound
       const playPromise = audio.play();
-      
+
       // Handle play promise for browsers that require user interaction
       if (playPromise !== undefined) {
         playPromise.catch(error => {
@@ -149,6 +177,11 @@ class SoundService {
 
     if (muted) {
       this.stopAll();
+    } else {
+      // Resume ambience if it was playing
+      if (this.currentRoundPhase !== RoundPhase.WAITING) {
+        this.startAmbience();
+      }
     }
   }
 
@@ -163,7 +196,14 @@ class SoundService {
     // Update all audio volumes
     this.sounds.forEach((audio, type) => {
       const config = this.soundConfigs[type];
-      audio.volume = config.volume * this.masterVolume;
+      let finalVolume = config.volume * this.masterVolume;
+
+      // Apply ambience volume multiplier for round-based volume changes
+      if (type === SoundType.AMBIENCE) {
+        finalVolume *= this.ambienceVolumeMultiplier;
+      }
+
+      audio.volume = finalVolume;
     });
   }
 
@@ -190,7 +230,9 @@ class SoundService {
   }
 
   public startAmbience() {
-    this.play(SoundType.AMBIENCE);
+    if (!this.isMuted) {
+      this.play(SoundType.AMBIENCE);
+    }
   }
 
   public stopAmbience() {
@@ -228,6 +270,81 @@ class SoundService {
         // Ignore errors for silent initialization
       });
     });
+  }
+
+  // Round-aware audio methods
+  public setRoundPhase(phase: RoundPhase) {
+    const previousPhase = this.currentRoundPhase;
+    this.currentRoundPhase = phase;
+
+    console.log(`[SoundService] Round phase changed: ${previousPhase} -> ${phase}`);
+
+    // Handle phase-specific audio behavior
+    switch (phase) {
+      case RoundPhase.WAITING:
+        this.stopAmbience();
+        this.ambienceVolumeMultiplier = 1.0;
+        break;
+
+      case RoundPhase.BETTING:
+        if (previousPhase === RoundPhase.WAITING || previousPhase === RoundPhase.COMPLETED) {
+          this.play(SoundType.ROUND_START);
+          this.startAmbience();
+        }
+        this.ambienceVolumeMultiplier = 1.0; // Normal volume during betting
+        this.updateAmbienceVolume();
+        break;
+
+      case RoundPhase.PLAYING:
+        if (previousPhase === RoundPhase.BETTING) {
+          this.play(SoundType.BETTING_END);
+        }
+        this.ambienceVolumeMultiplier = 0.7; // Lower volume during play phase
+        this.updateAmbienceVolume();
+        break;
+
+      case RoundPhase.SETTLING:
+        this.play(SoundType.ROUND_SETTLE);
+        this.ambienceVolumeMultiplier = 0.5; // Even lower during settlement
+        this.updateAmbienceVolume();
+        break;
+
+      case RoundPhase.COMPLETED:
+        this.ambienceVolumeMultiplier = 1.0; // Back to normal
+        this.updateAmbienceVolume();
+        break;
+    }
+  }
+
+  private updateAmbienceVolume() {
+    const ambienceAudio = this.sounds.get(SoundType.AMBIENCE);
+    if (ambienceAudio) {
+      const config = this.soundConfigs[SoundType.AMBIENCE];
+      ambienceAudio.volume = config.volume * this.masterVolume * this.ambienceVolumeMultiplier;
+    }
+  }
+
+  public getCurrentRoundPhase(): RoundPhase {
+    return this.currentRoundPhase;
+  }
+
+  // Enhanced ambience control methods are already defined above
+
+  // Round event handlers
+  public handleRoundStart() {
+    this.setRoundPhase(RoundPhase.BETTING);
+  }
+
+  public handleBettingEnd() {
+    this.setRoundPhase(RoundPhase.PLAYING);
+  }
+
+  public handleRoundSettlement() {
+    this.setRoundPhase(RoundPhase.SETTLING);
+  }
+
+  public handleRoundComplete() {
+    this.setRoundPhase(RoundPhase.COMPLETED);
   }
 }
 

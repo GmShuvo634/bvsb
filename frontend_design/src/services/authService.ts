@@ -33,12 +33,8 @@ class AuthService {
     if (typeof window === 'undefined') return;
 
     try {
-      // Check localStorage first (remember me)
-      let stored = localStorage.getItem('auth');
-      if (!stored) {
-        // Check sessionStorage
-        stored = sessionStorage.getItem('auth');
-      }
+      // Always use localStorage for token storage
+      const stored = localStorage.getItem('auth');
 
       if (stored) {
         const authData = JSON.parse(stored);
@@ -57,18 +53,16 @@ class AuthService {
   /**
    * Set authentication data
    */
-  setAuth(authData: AuthData, remember: boolean = false) {
+  setAuth(authData: AuthData) {
     this.authData = authData;
 
     // Only run on client side
     if (typeof window !== 'undefined') {
-      // Store in appropriate storage
-      const storage = remember ? localStorage : sessionStorage;
-      storage.setItem('auth', JSON.stringify(authData));
+      // Always store in localStorage
+      localStorage.setItem('auth', JSON.stringify(authData));
 
-      // Clear from other storage
-      const otherStorage = remember ? sessionStorage : localStorage;
-      otherStorage.removeItem('auth');
+      // Clear sessionStorage to ensure no old data remains
+      sessionStorage.removeItem('auth');
     }
 
     this.notifyListeners();
@@ -90,6 +84,14 @@ class AuthService {
   }
 
   /**
+   * Force clear all cached data and require fresh login
+   */
+  forceClearCache() {
+    this.clearAuth();
+    console.log('Authentication cache cleared - fresh login required');
+  }
+
+  /**
    * Get current authentication data
    */
   getAuth(): AuthData | null {
@@ -103,18 +105,20 @@ class AuthService {
     return this.authData?.isAuthenticated || false;
   }
 
-  /**
-   * Check if user is in demo mode
-   */
-  isDemoMode(): boolean {
-    return this.authData?.isDemo || false;
-  }
+
 
   /**
    * Get current user
    */
   getUser(): User | null {
     return this.authData?.user || null;
+  }
+
+  /**
+   * Check if user is in demo mode
+   */
+  isDemoMode(): boolean {
+    return this.authData?.isDemo || false;
   }
 
   /**
@@ -131,9 +135,8 @@ class AuthService {
     if (this.authData) {
       this.authData.user = { ...this.authData.user, ...userData };
 
-      // Update storage
-      const storage = localStorage.getItem('auth') ? localStorage : sessionStorage;
-      storage.setItem('auth', JSON.stringify(this.authData));
+      // Always update localStorage
+      localStorage.setItem('auth', JSON.stringify(this.authData));
 
       this.notifyListeners();
     }
@@ -144,6 +147,43 @@ class AuthService {
    */
   updateBalance(newBalance: number) {
     this.updateUser({ balance: newBalance });
+  }
+
+  /**
+   * Refresh user data from server
+   */
+  async refreshUserData(): Promise<void> {
+    try {
+      if (!this.authData?.token) {
+        throw new Error('No authentication token available');
+      }
+
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiBaseUrl}/api/user/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.authData.token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh user data');
+      }
+
+      const userData = await response.json();
+
+      // Update user data with fresh data from server
+      this.updateUser({
+        balance: userData.balance,
+        avatar: userData.avatar || '',
+        country: userData.country || '',
+      });
+
+      console.log('User data refreshed:', userData);
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
   }
 
   /**
@@ -180,7 +220,7 @@ class AuthService {
   /**
    * Login with email and password
    */
-  async login(email: string, password: string, remember: boolean = false): Promise<AuthData> {
+  async login(email: string, password: string): Promise<AuthData> {
     try {
       // Get API base URL from environment
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
@@ -205,10 +245,14 @@ class AuthService {
         isAuthenticated: true,
       };
 
-      this.setAuth(authData, remember);
+      this.setAuth(authData);
+
+      // Refresh user data to ensure we have the latest balance
+      await this.refreshUserData();
+
       soundService.playWinSound();
 
-      return authData;
+      return this.authData || authData;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -243,7 +287,7 @@ class AuthService {
         isAuthenticated: true,
       };
 
-      this.setAuth(authData, false); // Don't remember by default for new registrations
+      this.setAuth(authData);
       soundService.playWinSound();
 
       return authData;
@@ -251,6 +295,79 @@ class AuthService {
       console.error('Registration error:', error);
       throw error;
     }
+  }
+
+
+
+
+  /**
+   * Logout user
+   */
+  logout() {
+    soundService.playButtonClick();
+    this.clearAuth();
+  }
+
+  /**
+   * Check if authentication is required for an action
+   */
+  requiresAuth(action: 'bet' | 'deposit' | 'withdraw'): boolean {
+    if (!this.isAuthenticated()) {
+      return true;
+    }
+
+    // Demo mode restrictions
+    if (this.isDemoMode()) {
+      switch (action) {
+        case 'deposit':
+        case 'withdraw':
+          return false; // Demo users can't deposit/withdraw real money
+        case 'bet':
+          return false; // Demo users can bet with demo tokens
+        default:
+          return false;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Get user display name
+   */
+  getUserDisplayName(): string {
+    const user = this.getUser();
+    if (!user) return 'Guest';
+
+    if (user.isDemo) return 'Demo Player';
+
+    return user.email.split('@')[0] || 'Player';
+  }
+
+  /**
+   * Format balance for display
+   */
+  getFormattedBalance(): string {
+    const user = this.getUser();
+    if (!user) return '0.00';
+
+    const suffix = user.isDemo ? ' Demo' : '';
+    return `${user.balance.toFixed(2)}${suffix}`;
+  }
+
+  /**
+   * Debug method to check current auth state
+   */
+  debugAuthState() {
+    console.log('=== Auth Service Debug ===');
+    console.log('Current auth data:', this.authData);
+    console.log('Is authenticated:', this.isAuthenticated());
+    console.log('Current user:', this.getUser());
+    console.log('Current balance:', this.getUser()?.balance);
+    console.log('Formatted balance:', this.getFormattedBalance());
+    console.log('Token:', this.getToken());
+    console.log('LocalStorage auth:', localStorage.getItem('auth'));
+    console.log('========================');
   }
 
   /**
@@ -299,7 +416,7 @@ class AuthService {
         isDemo: true,
       };
 
-      this.setAuth(authData, false); // Demo mode is session-only
+      this.setAuth(authData);
       soundService.playNotification();
 
       return authData;
@@ -378,7 +495,7 @@ class AuthService {
         isDemo: true,
       };
 
-      this.setAuth(authData, false);
+      this.setAuth(authData);
       soundService.playNotification();
 
       return authData;
@@ -388,64 +505,20 @@ class AuthService {
     }
   }
 
-  /**
-   * Logout user
-   */
-  logout() {
-    soundService.playButtonClick();
-    this.clearAuth();
-  }
 
-  /**
-   * Check if authentication is required for an action
-   */
-  requiresAuth(action: 'bet' | 'deposit' | 'withdraw'): boolean {
-    if (!this.isAuthenticated()) {
-      return true;
-    }
 
-    // Demo mode restrictions
-    if (this.isDemoMode()) {
-      switch (action) {
-        case 'deposit':
-        case 'withdraw':
-          return false; // Demo users can't deposit/withdraw real money
-        case 'bet':
-          return false; // Demo users can bet with demo tokens
-        default:
-          return false;
-      }
-    }
 
-    return false;
-  }
 
-  /**
-   * Get user display name
-   */
-  getUserDisplayName(): string {
-    const user = this.getUser();
-    if (!user) return 'Guest';
 
-    if (user.isDemo) return 'Demo Player';
-
-    return user.email.split('@')[0] || 'Player';
-  }
-
-  /**
-   * Format balance for display
-   */
-  getFormattedBalance(): string {
-    const user = this.getUser();
-    if (!user) return '0.00';
-
-    const suffix = user.isDemo ? ' Demo' : '';
-    return `${user.balance.toFixed(2)}${suffix}`;
-  }
 }
 
 // Singleton instance
 export const authService = new AuthService();
+
+// Expose authService globally for debugging (only in development)
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  (window as any).authService = authService;
+}
 
 // React hook for auth service
 export function useAuth() {

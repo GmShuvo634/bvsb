@@ -7,7 +7,7 @@ import { Drawer, DrawerPosition } from "@/components/drawer";
 import { useAccount, useDisconnect } from "wagmi";
 import { Config } from "@/config";
 import { userDisconnect } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 interface TradeHistoryHeaderProps {
   avatar: string;

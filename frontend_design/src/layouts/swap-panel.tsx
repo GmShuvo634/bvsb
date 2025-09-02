@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { Icon, IconType } from "@/components/icons";
 import { Config } from "@/config";
 import { swapCoinRequest } from "@/pages/api";

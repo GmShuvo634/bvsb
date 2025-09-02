@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import JackpotHeader from "@/layouts/jackpot_header";
 import { getMonthlyJackpot } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { Config } from "@/config";
 import { getDisplayString } from "@/utils/utils";
 import { useSelector } from "react-redux";
 
 export default function Home() {
-  
+
   const player = useSelector((state: any) => state.globalState.player);
   const [participationTickets, setParticipationTickets] = useState(0);
   const [jackpotWallet, setJackpotWallet] = useState("");

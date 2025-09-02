@@ -7,7 +7,7 @@ import { soundService } from "@/services/soundService";
 
 const appearAvatar = keyframes`
   0% {
-    transform: scale(2.5);
+    transform: scale(1.5);
     opacity: 0;
   }
   100% {

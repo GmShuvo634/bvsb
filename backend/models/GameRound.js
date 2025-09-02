@@ -2,64 +2,64 @@
 const mongoose = require('mongoose');
 
 const gameRoundSchema = new mongoose.Schema({
-  roundId: { 
-    type: String, 
-    required: true, 
+  roundId: {
+    type: String,
+    required: true,
     unique: true,
-    index: true 
+    index: true
   },
-  status: { 
-    type: String, 
-    enum: ['waiting', 'betting', 'playing', 'settling', 'completed'], 
-    default: 'waiting' 
+  status: {
+    type: String,
+    enum: ['waiting', 'betting', 'playing', 'settling', 'completed'],
+    default: 'waiting'
   },
-  startTime: { 
-    type: Date, 
-    default: Date.now 
+  startTime: {
+    type: Date,
+    default: Date.now
   },
-  bettingEndTime: { 
-    type: Date 
+  bettingEndTime: {
+    type: Date
   },
-  playEndTime: { 
-    type: Date 
+  playEndTime: {
+    type: Date
   },
-  settleTime: { 
-    type: Date 
+  settleTime: {
+    type: Date
   },
-  startPrice: { 
-    type: Number 
+  startPrice: {
+    type: Number
   },
-  endPrice: { 
-    type: Number 
+  endPrice: {
+    type: Number
   },
-  upPoolTotal: { 
-    type: Number, 
-    default: 0 
+  upPoolTotal: {
+    type: Number,
+    default: 0
   },
-  downPoolTotal: { 
-    type: Number, 
-    default: 0 
+  downPoolTotal: {
+    type: Number,
+    default: 0
   },
-  upPoolPlayers: { 
-    type: Number, 
-    default: 0 
+  upPoolPlayers: {
+    type: Number,
+    default: 0
   },
-  downPoolPlayers: { 
-    type: Number, 
-    default: 0 
+  downPoolPlayers: {
+    type: Number,
+    default: 0
   },
-  winningPool: { 
-    type: String, 
-    enum: ['up', 'down', null], 
-    default: null 
+  winningPool: {
+    type: String,
+    enum: ['up', 'down', null],
+    default: null
   },
-  totalPayout: { 
-    type: Number, 
-    default: 0 
+  totalPayout: {
+    type: Number,
+    default: 0
   },
-  houseFee: { 
-    type: Number, 
-    default: 0 
+  houseFee: {
+    type: Number,
+    default: 0
   },
   // Track all bets in this round
   bets: [{
@@ -73,8 +73,8 @@ const gameRoundSchema = new mongoose.Schema({
     payout: { type: Number, default: 0 },
     result: { type: String, enum: ['pending', 'win', 'loss'], default: 'pending' }
   }]
-}, { 
-  timestamps: true 
+}, {
+  timestamps: true
 });
 
 // Indexes for efficient queries

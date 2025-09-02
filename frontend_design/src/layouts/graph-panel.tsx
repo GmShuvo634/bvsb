@@ -6,7 +6,7 @@ import { Icon, IconType } from "@/components/icons";
 import styled, { keyframes } from "styled-components";
 import { RecentProps } from "@/pages/play";
 import { getDashboardData } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 // Animations
 const historyAnim = keyframes` ... `; // same as before
@@ -35,7 +35,8 @@ const refreshPriceCount = Config.roundTime.refresh / Config.interval.priceUpdate
 const maxPriceCount = basicPriceCount + preparePriceCount + playPriceCount + refreshPriceCount;
 
 export default function GraphPanel(props: GraphPanelProps) {
-  const priceDivisor = (Config as any).ethPriceDecimal ?? (Config as any).btcPriceDecimal ?? 1;
+  // Ensure we have a valid price divisor to prevent NaN calculations
+  const priceDivisor = (Config as any).ethPriceDecimal ?? (Config as any).btcPriceDecimal ?? 1000000;
   const { ethPrices: ethPricesProp = [], btcPrices = [], jackpot, histories } = props;
   const ethPrices = ethPricesProp.length ? ethPricesProp : btcPrices;
   const [typicalPrices, setTypicalPrices] = useState<number[]>([]);
@@ -241,7 +242,17 @@ const loadDashboardStats = async () => {
               Start Rate
             </span>
             <span className="text-[#fff699] font-bold text-sm sm:text-xl">
-              {parseFloat((startEthPrice / priceDivisor).toString()).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+              {(() => {
+                // Validate inputs to prevent NaN display
+                if (!startEthPrice || !priceDivisor || priceDivisor === 0) {
+                  return "0.0000";
+                }
+                const calculatedRate = startEthPrice / priceDivisor;
+                if (isNaN(calculatedRate) || !isFinite(calculatedRate)) {
+                  return "0.0000";
+                }
+                return parseFloat(calculatedRate.toString()).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+              })()}
             </span>
           </div>
         </div>
@@ -273,10 +284,20 @@ const UpVsDownHistory: React.FC<{ start: number; end: number; priceDivisor: numb
           <HistoryDetailAnimDiv className="h-32 w-28 flex flex-col items-center justify-center rounded-xl bg-[#262735]">
             <span className="text-xs text-[#777a99]">START RATE</span>
             <span className="text-base text-white">
-              {(start / priceDivisor).toLocaleString(undefined, {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 4,
-              })}
+              {(() => {
+                // Validate inputs to prevent NaN display in history
+                if (!start || !priceDivisor || priceDivisor === 0) {
+                  return "0.0000";
+                }
+                const calculatedRate = start / priceDivisor;
+                if (isNaN(calculatedRate) || !isFinite(calculatedRate)) {
+                  return "0.0000";
+                }
+                return calculatedRate.toLocaleString(undefined, {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 4,
+                });
+              })()}
             </span>
             <div className="w-full h-[2px] bg-[#3f404f] my-1" />
             <span className="text-xs text-[#777a99]">END RATE</span>

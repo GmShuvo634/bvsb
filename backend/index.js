@@ -13,6 +13,10 @@ const betRoutes   = require('./routes/bet');
 const adminRoutes = require('./routes/admin');
 const dashRoutes  = require('./routes/dashboard');
 const ethRoutes   = require('./routes/eth');
+const statsRoutes = require('./routes/stats');
+const leaderboardRoutes = require('./routes/leaderboard');
+const jackpotRoutes = require('./routes/jackpot');
+const chatRoutes = require('./routes/chat');
 const startCron   = require('./cron');
 
 const app = express();
@@ -35,6 +39,10 @@ app.use('/api/bet',       betRoutes);
 app.use('/api/admin',     adminRoutes);
 app.use('/api/dashboard', dashRoutes);
 app.use('/api/eth',       ethRoutes);
+app.use('/api/stats',     statsRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/jackpot',   jackpotRoutes);
+app.use('/api/chat',      chatRoutes);
 app.use('/api/pool',      require('./routes/pool'));
 
 // ─── Health‑check ──────────────────────────────────────────────────────────────
@@ -75,7 +83,7 @@ wss.on('connection', ws => {
   ws.on('message', async (message) => {
     try {
       console.log('[WS] received:', message.toString());
-      
+
       // Try to decode the message
       let payload;
       try {
@@ -92,7 +100,7 @@ wss.on('connection', ws => {
           // Handle betting through WebSocket
           const gameService = require('./services/gameService');
           const { address, isUpPool, bettedBalance, isDemo, guestId } = data;
-          
+
           try {
             const result = await gameService.placeBet(
               isDemo ? null : data.userId,
@@ -102,7 +110,7 @@ wss.on('connection', ws => {
               isUpPool ? 'up' : 'down',
               isDemo
             );
-            
+
             // Broadcast success (already handled by gameService)
             console.log(`[WS] Bet placed successfully: ${bettedBalance} on ${isUpPool ? 'up' : 'down'}`);
           } catch (error) {
@@ -111,12 +119,12 @@ wss.on('connection', ws => {
           }
           break;
         }
-        
+
         case 'getRoundInfo': {
           // Send current round info to client
           const gameService = require('./services/gameService');
           const roundInfo = gameService.getCurrentRound();
-          
+
           const response = {
             message: {
               id: Date.now(),
@@ -124,11 +132,54 @@ wss.on('connection', ws => {
               data: roundInfo
             }
           };
-          
+
           ws.send(Buffer.from(JSON.stringify(response)).toString('base64'));
           break;
         }
-        
+
+        case 'chatMessage': {
+          // Handle chat message through WebSocket
+          const chatController = require('./controllers/chatController');
+          const { message, address, userId, guestId } = data;
+
+          try {
+            // Create a mock request object for the chat controller
+            const mockReq = {
+              body: { message, roomId: 'global' },
+              user: userId ? { id: userId, address } : null,
+              guestId: guestId,
+              ip: ws._socket?.remoteAddress
+            };
+
+            const mockRes = {
+              status: (code) => mockRes,
+              json: (data) => {
+                if (data.success) {
+                  console.log(`[WS] Chat message sent successfully`);
+                } else {
+                  console.error(`[WS] Chat message failed:`, data.error);
+                  // Send error back to client
+                  const errorResponse = {
+                    message: {
+                      id: Date.now(),
+                      type: 'chatError',
+                      data: { error: data.error }
+                    }
+                  };
+                  ws.send(Buffer.from(JSON.stringify(errorResponse)).toString('base64'));
+                }
+                return mockRes;
+              }
+            };
+
+            // Process the chat message
+            await chatController.sendMessage(mockReq, mockRes);
+          } catch (error) {
+            console.error('[WS] Chat message handling error:', error.message);
+          }
+          break;
+        }
+
         default:
           console.log(`[WS] Unknown message type: ${type}`);
           break;
@@ -175,15 +226,21 @@ wss.on('connection', ws => {
       }
     }
   };
-  
+
   ws.send(Buffer.from(JSON.stringify(welcomeMessage)).toString('base64'));
 });
+
+// ─── Initialize Price Feed Service ────────────────────────────────────────────
+const priceFeedService = require('./services/priceFeedService');
 
 // ─── Start listening ───────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5001;
 if (!process.env.JEST_WORKER_ID && process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`HTTP + WS server listening on http://localhost:${PORT}`);
+
+    // Start the continuous price feed service
+    priceFeedService.start();
   });
 }
 

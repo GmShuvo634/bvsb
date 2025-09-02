@@ -6,6 +6,7 @@ export interface PlayerProps {
   address?: string;
   avatar: string;
   country: string;
+  balance: number; // Add balance field for user's token balance
   bettedBalance: number;
   isUpPool: boolean;
   className?: string;
@@ -23,6 +24,7 @@ const initialState: GlobalState = {
     address: '',
     avatar: '',
     country: '',
+    balance: 0, // Initialize balance to 0
     bettedBalance: 0,
     isUpPool: false,
     className: '',

@@ -47,7 +47,7 @@ const CustomStatus: React.FC<CustomStatusProps> = (props) => {
             props.isUpPool ? "text-[#2dffb5]" : "text-[#ff1616]"
           } font-oswald text-4xl sm:text-[50px] font-bold leading-9 sm:leading-[50px]`}
         >
-          {Math.floor(props.payout)}%
+          {isFinite(props.payout) ? Math.floor(props.payout) : 0}%
         </span>
       </div>
       <div className="flex flex-row items-end gap-2 md:flex-col">
@@ -114,14 +114,29 @@ export default function GameStatus(props: GameStatusProps) {
 
     // console.log("GameStatus useEffect log - 1 : ", upt, dpt);
 
-    setUpPotentialReturn(
-      (upt + bettedBalance + (dpt - dpt * fee)) /
-        ((upt + bettedBalance) / bettedBalance)
-    );
-    setDownPotentialReturn(
-      (dpt + bettedBalance + (upt - upt * fee)) /
-        ((dpt + bettedBalance) / bettedBalance)
-    );
+    // Prevent division by zero and NaN calculations
+    if (bettedBalance <= 0) {
+      setUpPotentialReturn(0);
+      setDownPotentialReturn(0);
+      return;
+    }
+
+    // Calculate potential returns with safe division
+    const upPoolTotal = upt + bettedBalance;
+    const downPoolTotal = dpt + bettedBalance;
+
+    // For up pool: if user bets up, they get share of down pool (minus fees) + their bet back
+    const upPotentialReturn = upPoolTotal > 0
+      ? (upPoolTotal + (dpt - dpt * fee)) / (upPoolTotal / bettedBalance)
+      : bettedBalance; // If no other up bets, just return the bet amount
+
+    // For down pool: if user bets down, they get share of up pool (minus fees) + their bet back
+    const downPotentialReturn = downPoolTotal > 0
+      ? (downPoolTotal + (upt - upt * fee)) / (downPoolTotal / bettedBalance)
+      : bettedBalance; // If no other down bets, just return the bet amount
+
+    setUpPotentialReturn(isFinite(upPotentialReturn) ? upPotentialReturn : bettedBalance);
+    setDownPotentialReturn(isFinite(downPotentialReturn) ? downPotentialReturn : bettedBalance);
   }, [address, players, bettedBalance]);
 
   return (
@@ -130,7 +145,7 @@ export default function GameStatus(props: GameStatusProps) {
         isUpPool={true}
         investment={bettedBalance}
         potential={upPotentialReturn}
-        payout={(upPotentialReturn * 100) / bettedBalance}
+        payout={bettedBalance > 0 ? (upPotentialReturn * 100) / bettedBalance : 0}
       />
       <div className="absolute md:relative min-w-[144px] h-full top-0 md:top-auto left-1/2 md:left-auto -translate-x-1/2 md:translate-x-0 flex flex-row justify-center">
         <div className="absolute top-8 w-32 h-32 sm:w-36 sm:h-36 bg-gradient-to-b from-[#202230] to-[#181923] rounded-full">
@@ -165,7 +180,7 @@ export default function GameStatus(props: GameStatusProps) {
         isUpPool={false}
         investment={bettedBalance}
         potential={downPotentialReturn}
-        payout={(downPotentialReturn * 100) / bettedBalance}
+        payout={bettedBalance > 0 ? (downPotentialReturn * 100) / bettedBalance : 0}
       />
     </div>
   );

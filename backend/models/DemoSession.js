@@ -2,69 +2,63 @@
 const mongoose = require('mongoose');
 
 const demoSessionSchema = new mongoose.Schema({
-  guestId: { 
-    type: String, 
-    required: true, 
-    index: true, 
-    unique: true 
-  },
-  ipAddress: { 
-    type: String, 
+  guestId: {
+    type: String,
     required: true,
-    index: true 
+    unique: true,
+    index: true
   },
-  userAgent: { 
-    type: String 
+  currentBalance: {
+    type: Number,
+    default: 1000 // Demo users start with 1000 tokens
   },
-  initialBalance: { 
-    type: Number, 
-    default: 1000 
+  initialBalance: {
+    type: Number,
+    default: 1000
   },
-  currentBalance: { 
-    type: Number, 
-    default: 1000 
+  totalBets: {
+    type: Number,
+    default: 0
   },
-  totalBets: { 
-    type: Number, 
-    default: 0 
+  totalWins: {
+    type: Number,
+    default: 0
   },
-  totalWins: { 
-    type: Number, 
-    default: 0 
+  totalLosses: {
+    type: Number,
+    default: 0
   },
-  totalLosses: { 
-    type: Number, 
-    default: 0 
+  isActive: {
+    type: Boolean,
+    default: true
   },
-  isActive: { 
-    type: Boolean, 
-    default: true 
+  sessionExpiry: {
+    type: Date,
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
   },
-  lastActivity: { 
-    type: Date, 
-    default: Date.now 
+  ipAddress: {
+    type: String,
+    required: true
   },
-  sessionExpiry: { 
-    type: Date, 
-    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+  userAgent: {
+    type: String,
+    default: ''
   },
-  // Track if user has registered to prevent multiple demo accounts
-  hasRegistered: { 
-    type: Boolean, 
-    default: false 
-  },
-  registeredUserId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
+  lastActivity: {
+    type: Date,
+    default: Date.now
   }
-}, { 
-  timestamps: true 
+}, {
+  timestamps: true
 });
 
 // Index for cleanup of expired sessions
 demoSessionSchema.index({ sessionExpiry: 1 }, { expireAfterSeconds: 0 });
 
-// Index for IP-based tracking
-demoSessionSchema.index({ ipAddress: 1, createdAt: -1 });
+// Update last activity on save
+demoSessionSchema.pre('save', function(next) {
+  this.lastActivity = new Date();
+  next();
+});
 
 module.exports = mongoose.model('DemoSession', demoSessionSchema);

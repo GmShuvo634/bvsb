@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { login, register } from '../components/api';
 import { soundService } from '../services/soundService';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { authService } from '@/services/authService';
 
 interface AuthModalProps {
@@ -67,12 +67,8 @@ const AuthModal: React.FC<AuthModalProps> = ({
           isAuthenticated: true
         };
 
-        // Store in localStorage if remember me is checked
-        if (rememberMe) {
-          localStorage.setItem('auth', JSON.stringify(authData));
-        } else {
-          sessionStorage.setItem('auth', JSON.stringify(authData));
-        }
+        // Use authService to store auth data (always in localStorage)
+        authService.setAuth(authData);
 
         soundService.playWinSound();
         toast.success(mode === 'login' ? 'Login successful!' : 'Registration successful!');
@@ -216,7 +212,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
           <div className="border-t border-[#3f404f] pt-4">
             <button
               onClick={handleDemoPlay}
-              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg text-white font-semibold transition-all duration-200 transform hover:scale-105"
+              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg text-white font-semibold transition-all duration-200 transform hover:scale-[1.02]"
             >
               🎮 Try Demo Mode
             </button>

@@ -7,7 +7,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 // Optional auth middleware - allows both authenticated and demo users
 const optionalAuth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  
+
   if (!token) {
     // No token provided, continue as guest/demo
     return next();

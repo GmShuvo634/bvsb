@@ -7,6 +7,95 @@ body {
   overflow-x: hidden;
 }
 
+/* Enhanced styles for jackpot winners page */
+.font-oswald {
+  font-family: 'Oswald', sans-serif;
+}
+
+/* Enhanced loading spinner matching app colors */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Ensure proper visibility for jackpot winners elements */
+.section_winners {
+  background: transparent !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.winner_row {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.block_winner_monthly,
+.block_winner {
+  visibility: visible !important;
+  opacity: 1 !important;
+  background-color: #1e1e1e !important;
+}
+
+.winner_card_title,
+.winner_card_title_2,
+.winner_card_title_3 {
+  color: #fff699 !important;
+  visibility: visible !important;
+}
+
+.card_title_gold {
+  color: #ffe196 !important;
+  visibility: visible !important;
+}
+
+.card_title {
+  color: #fff !important;
+  visibility: visible !important;
+}
+
+/* History modal improvements */
+.section_history {
+  background: rgba(17, 16, 22, 0.95) !important;
+  backdrop-filter: blur(8px);
+  border: 2px solid #b66dff;
+}
+
+.history_board {
+  background: rgba(9, 8, 11, 0.8) !important;
+  border-bottom: 1px solid rgba(182, 109, 255, 0.2);
+}
+
+.history_board:hover {
+  background: rgba(9, 8, 11, 0.9) !important;
+}
+
+.entry {
+  color: #fff699 !important;
+}
+
+.wallet_board {
+  color: #b656ff !important;
+  font-family: monospace;
+}
+
+/* Button styling to match app theme */
+.button_footer {
+  background-color: #ffe4a0 !important;
+  color: #000 !important;
+  border: 2px solid #e5cf8c !important;
+}
+
+.button_footer:hover {
+  background-color: #fff6e0 !important;
+  border-color: #fffbe6 !important;
+}
+
 .connect-wallet-modal-container {
   position: relative;
   display: flex;
@@ -109,7 +198,7 @@ body {
   100% {
      transform: translateY(0);
   }
-} 
+}
 @keyframes bounce-in-up {
   0% {
      opacity: 0;
@@ -125,7 +214,7 @@ body {
   100% {
      transform: translateY(0);
   }
-} 
+}
 @keyframes bounce-in-left {
   0% {
      opacity: 0;

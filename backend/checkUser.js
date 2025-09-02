@@ -1,7 +1,7 @@
 // backend/checkUser.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const User     = require('./models/User');
+const User     = require('./models/userModel');
 
 async function run() {
   try {
