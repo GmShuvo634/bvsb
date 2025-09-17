@@ -1022,9 +1022,6 @@ export default function Home() {
     return currentRoundStatus === "betting" && activeRoundId !== null;
   };
 
-  // The UI rendering block remains unchanged from your original file
-  // ... (same as in your latest upload)
-  // ── Render ──
   return (
     <div className="w-screen relative">
       {/* MAIN CONTENT - Full Width */}

@@ -1,11 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import {
-  Accordion,
-  AccordionHeader,
-  AccordionBody,
-} from "@material-tailwind/react";
 // import AnimatedNumber from "react-animated-number";
 import CountUp from "react-countup";
 import clsx from "clsx";
@@ -41,6 +36,23 @@ function Icon({ id, open }: IconProps) {
   );
 }
 
+// Custom Accordion components to avoid Material Tailwind context issues
+const Accordion = ({ open, children }: { open: boolean; children: React.ReactNode }) => {
+  return <div className="border-b border-gray-800">{children}</div>;
+};
+
+const AccordionHeader = ({ className, onClick, children }: { className?: string; onClick: () => void; children: React.ReactNode }) => {
+  return (
+    <div className={className} onClick={onClick}>
+      {children}
+    </div>
+  );
+};
+
+const AccordionBody = ({ children }: { children: React.ReactNode }) => {
+  return <div className="p-4">{children}</div>;
+};
+
 interface JackpotItemProps {
   pool: number;
   condition: number;
@@ -68,7 +80,7 @@ const JackpotItem = ({ pool, condition, players, prize }: JackpotItemProps) => {
   return (
     <Accordion open={open === 1}>
       <AccordionHeader
-        className="bg-[#09080b] !border-0 !py-0"
+        className="bg-[#09080b] !border-0 !py-0 cursor-pointer"
         onClick={() => handleOpen(1)}
       >
         <div className="relative w-full">
@@ -131,75 +143,79 @@ const JackpotItem = ({ pool, condition, players, prize }: JackpotItemProps) => {
                 </div>
               </div>
             </div>
-            <Icon id={1} open={open} />
+            <div className="flex items-center justify-center p-4">
+              <Icon id={1} open={open} />
+            </div>
           </div>
         </div>
       </AccordionHeader>
-      <AccordionBody>
-        <div className="weekly_details">
-          <div className="monthly_board_title">
-            <div className="monthly_order">
-              <div className="block_title_tab">
-                <div className="title_tab">#</div>
-              </div>
-            </div>
-            <div className="separator"></div>
-            <div className="monthly_player w-[25%] sm:w-[8%]">
-              <div className="title_tab">PLAYER</div>
-            </div>
-            <div className="separator"></div>
-            <div className="monthly_wallet">
-              <div className="block_title_tab">
-                <div className="title_tab">WALLET</div>
-              </div>
-            </div>
-            <div className="separator"></div>
-            <div className="monthly_participation">
-              <div className="block_title_tab">
-                <div className="title_tab">TRADES</div>
-              </div>
-            </div>
-          </div>
-          <div>
-            {players.map((item, index) => {
-              return (
-                <div key={index} className="monthly_board">
-                  <div className="monthly_order_entry">
-                    <div className="block_title_tab">
-                      <div className="entry">{index + 1}</div>
-                    </div>
-                  </div>
-                  <div className="ml-2 w-[25%] sm:w-[8%]">
-                    <div className="pfp">
-                      <Image
-                        src={
-                          item.player.avatar === ""
-                            ? "images/avatar-default.png"
-                            : Config.serverUrl.avatars + item.player.avatar
-                        }
-                        alt="User Avatar"
-                        className="profil_pic rounded-full"
-                        width={40}
-                        height={40}
-                      />
-                    </div>
-                  </div>
-                  <div className="monthly_wallet_entry">
-                    <div className="block_title_tab">
-                      <div className="wallet_board">{getDisplayString(item.player.address, 4, 4)}</div>
-                    </div>
-                  </div>
-                  <div className="monthly_participation">
-                    <div className="block_title_tab">
-                      <div className="entry">{item.count}</div>
-                    </div>
-                  </div>
+      {open === 1 && (
+        <AccordionBody>
+          <div className="weekly_details">
+            <div className="monthly_board_title">
+              <div className="monthly_order">
+                <div className="block_title_tab">
+                  <div className="title_tab">#</div>
                 </div>
-              );
-            })}
+              </div>
+              <div className="separator"></div>
+              <div className="monthly_player w-[25%] sm:w-[8%]">
+                <div className="title_tab">PLAYER</div>
+              </div>
+              <div className="separator"></div>
+              <div className="monthly_wallet">
+                <div className="block_title_tab">
+                  <div className="title_tab">WALLET</div>
+                </div>
+              </div>
+              <div className="separator"></div>
+              <div className="monthly_participation">
+                <div className="block_title_tab">
+                  <div className="title_tab">TRADES</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              {players.map((item, index) => {
+                return (
+                  <div key={index} className="monthly_board">
+                    <div className="monthly_order_entry">
+                      <div className="block_title_tab">
+                        <div className="entry">{index + 1}</div>
+                      </div>
+                    </div>
+                    <div className="ml-2 w-[25%] sm:w-[8%]">
+                      <div className="pfp">
+                        <Image
+                          src={
+                            item.player.avatar === ""
+                              ? "images/avatar-default.png"
+                              : Config.serverUrl.avatars + item.player.avatar
+                          }
+                          alt="User Avatar"
+                          className="profil_pic rounded-full"
+                          width={40}
+                          height={40}
+                        />
+                      </div>
+                    </div>
+                    <div className="monthly_wallet_entry">
+                      <div className="block_title_tab">
+                        <div className="wallet_board">{getDisplayString(item.player.address, 4, 4)}</div>
+                      </div>
+                    </div>
+                    <div className="monthly_participation">
+                      <div className="block_title_tab">
+                        <div className="entry">{item.count}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </AccordionBody>
+        </AccordionBody>
+      )}
     </Accordion>
   );
 };
