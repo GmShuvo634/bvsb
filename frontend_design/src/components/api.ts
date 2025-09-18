@@ -90,6 +90,72 @@ export function getLeaderboardData(type: string) {
   return axiosInstance.get(`/api/leaderboard?type=${type}`);
 }
 
+// ── User Activity & Stats ──
+export function getUserActivity(params?: {
+  limit?: number;
+  skip?: number;
+  type?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}) {
+  const queryParams = new URLSearchParams();
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.skip) queryParams.append('skip', params.skip.toString());
+  if (params?.type) queryParams.append('type', params.type);
+  if (params?.startDate) queryParams.append('startDate', params.startDate);
+  if (params?.endDate) queryParams.append('endDate', params.endDate);
+  if (params?.status) queryParams.append('status', params.status);
+
+  return axiosInstance.get(`/api/user/activity?${queryParams.toString()}`);
+}
+
+export function getUserActivityStats(timeRange?: string) {
+  return axiosInstance.get(`/api/user/activity/stats${timeRange ? `?timeRange=${timeRange}` : ''}`);
+}
+
+export function getUserTrades(params?: {
+  limit?: number;
+  skip?: number;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const queryParams = new URLSearchParams();
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.skip) queryParams.append('skip', params.skip.toString());
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.startDate) queryParams.append('startDate', params.startDate);
+  if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+  return axiosInstance.get(`/api/user/trades?${queryParams.toString()}`);
+}
+
+export function getUserBets(params?: {
+  limit?: number;
+  skip?: number;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const queryParams = new URLSearchParams();
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.skip) queryParams.append('skip', params.skip.toString());
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.startDate) queryParams.append('startDate', params.startDate);
+  if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+  return axiosInstance.get(`/api/user/bets?${queryParams.toString()}`);
+}
+
+export function getUserStats() {
+  return axiosInstance.get('/api/user/stats');
+}
+
+export function logUserActivity(activityType: string, metadata?: any) {
+  return axiosInstance.post('/api/user/activity', { activityType, metadata });
+}
+
 // ── Referral Reports ──
 export function getReferralReport(page: number) {
   return axiosInstance.get(`/api/referral/report?page=${page}`);

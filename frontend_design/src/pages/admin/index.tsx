@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { overrideCandle } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 export default function AdminPage() {
   const [roundId, setRoundId] = useState("");

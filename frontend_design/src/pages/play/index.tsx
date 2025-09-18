@@ -20,10 +20,12 @@ import DepositPanel from "@/components/DepositPanel";
 import AuthModal from "@/components/AuthModal";
 import Modal from "@/components/modal";
 import { Config } from "@/config";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { soundService } from "@/services/soundService";
 import { authService, AuthData } from "@/services/authService";
+import { useRoundAudio } from "@/hooks/useRoundAudio";
+import { RoundPhase } from "@/services/soundService";
 import { setIsUpdate } from "@/store/globalState";
 import type { PlayerProps } from "@/components/avatar";
 
@@ -52,6 +54,9 @@ export interface RecentProps {
 
 export default function Home() {
   const dispatch = useDispatch();
+
+  // Round audio integration
+  const roundAudio = useRoundAudio({ enabled: true, autoStartAmbience: true });
 
   // Wagmi hooks for wallet connection
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -109,6 +114,7 @@ export default function Home() {
   const lastReceiveIdRef = useRef<string | number>();
   const audioRef = useRef<HTMLAudioElement>(null);
   const fetchedHistoryRef = useRef<boolean>(false);
+  const isConnectingRef = useRef<boolean>(false); // Track if connection is in progress
 
   // Initialize authentication
   useEffect(() => {
@@ -128,6 +134,28 @@ export default function Home() {
       authService.removeListener(handleAuthChange);
     };
   }, []);
+
+  // Sync round status with audio phases
+  useEffect(() => {
+    const mapStatusToPhase = (status: string): RoundPhase => {
+      switch (status) {
+        case 'betting':
+          return RoundPhase.BETTING;
+        case 'playing':
+          return RoundPhase.PLAYING;
+        case 'settling':
+          return RoundPhase.SETTLING;
+        case 'completed':
+          return RoundPhase.COMPLETED;
+        default:
+          return RoundPhase.WAITING;
+      }
+    };
+
+    const phase = mapStatusToPhase(currentRoundStatus);
+    console.log(`[Frontend] Syncing audio phase: ${currentRoundStatus} -> ${phase}`);
+    roundAudio.setRoundPhase(phase);
+  }, [currentRoundStatus, roundAudio]);
 
   // Initialize wallet connections
   useEffect(() => {
@@ -251,18 +279,37 @@ export default function Home() {
     let manualClose = false;
 
     const connect = () => {
+      // Prevent multiple simultaneous connection attempts
+      if (isConnectingRef.current) {
+        console.log("[Frontend] Connection already in progress, skipping");
+        return;
+      }
+
+      // Check if we already have an active connection
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        console.log("[Frontend] WebSocket already connected, skipping");
+        return;
+      }
+
+      isConnectingRef.current = true;
       const url = buildUrl();
+      console.log("[Frontend] Attempting WebSocket connection to:", url);
       const newSocket = new WebSocket(url);
       setSocket(newSocket);
 
       newSocket.onopen = () => {
         console.log("[Frontend] WebSocket connected successfully");
+
+        isConnectingRef.current = false;
         if (reconnectTimer) clearTimeout(reconnectTimer);
+
+        // Sonner handles deduplication automatically
         toast.success("Connected to game server");
       };
 
       newSocket.onclose = () => {
         console.log("[Frontend] WebSocket disconnected");
+        isConnectingRef.current = false;
         setSocket(null);
         if (!manualClose) {
           toast.warning("Connection lost. Reconnecting...");
@@ -272,6 +319,7 @@ export default function Home() {
 
       newSocket.onerror = (error) => {
         console.error("[Frontend] WebSocket error:", error);
+        isConnectingRef.current = false;
         try {
           newSocket?.close();
         } catch {}
@@ -352,6 +400,9 @@ export default function Home() {
           case "roundSettled": {
             const d = message.data || message;
             if (d) {
+              // Handle round settlement audio
+              roundAudio.handleRoundSettlement();
+
               // Update round result with actual backend data
               const winnerCount = d.winnerCount || 0;
               const loserCount = d.loserCount || 0;
@@ -392,7 +443,7 @@ export default function Home() {
                 );
               }, 8000);
 
-              // Play sound for winners
+              // Play sound for winners/losers
               const currentAuth = authService.getAuth();
               if (currentAuth && d.results) {
                 const userResult = d.results.find((result: any) => {
@@ -403,15 +454,33 @@ export default function Home() {
                   }
                 });
 
-                if (userResult && userResult.result === "win") {
-                  audioRef.current?.play();
+                if (userResult) {
+                  if (userResult.result === "win") {
+                    roundAudio.handleWin();
+                  } else if (userResult.result === "loss") {
+                    roundAudio.handleLoss();
+                  }
                 }
               }
             }
             break;
           }
           case "roundReady": {
-            console.log("[Frontend] New round ready for betting");
+            const d = message.data || message;
+            const roundId = d?.roundId;
+
+            // Handle round start audio
+            roundAudio.handleRoundStart();
+
+            console.log("[Frontend] roundReady message received:", {
+              roundId,
+              messageData: d,
+              fullMessage: message
+            });
+
+            // Sonner handles deduplication automatically
+            toast.info("New round started - place your bets!");
+
             setIsResultReady(false);
 
             // Preserve the current round result as historical data before clearing
@@ -430,7 +499,6 @@ export default function Home() {
             // Fetch recent history to update historical context
             fetchRecentHistory();
 
-            toast.info("New round started - place your bets!");
             break;
           }
           case "balanceUpdate": {
@@ -446,6 +514,13 @@ export default function Home() {
                 setJackpotBalance(d.balance); // Also update local state
                 toast.success(`Demo balance updated: ${d.balance}`);
               }
+            }
+            // Handle user balance updates
+            else if (d.userId && authData?.user.id === d.userId) {
+              console.log("[Frontend] Updating user balance:", d.balance);
+              authService.updateBalance(d.balance);
+              setJackpotBalance(d.balance); // Also update local state
+              toast.success(`Balance updated: ${d.balance}`);
             }
             // Handle regular user balance updates
             else if (
@@ -491,6 +566,21 @@ export default function Home() {
             }
             break;
           }
+          case "priceUpdate": {
+            // Universal price updates for all users (authenticated, anonymous, demo, real)
+            const d = message.data || message;
+            if (d && typeof d.price === 'number') {
+              setEthPrices((prev) => {
+                const next = [...prev, d.price];
+                // Maintain price history limit
+                if (next.length > maxPriceCount) {
+                  return next.slice(-maxPriceCount);
+                }
+                return next;
+              });
+            }
+            break;
+          }
           default:
             break;
         }
@@ -500,6 +590,7 @@ export default function Home() {
     connect();
     return () => {
       manualClose = true;
+      isConnectingRef.current = false;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       setSocket((prevSocket) => {
         if (prevSocket && prevSocket.readyState === WebSocket.OPEN) {
@@ -510,32 +601,8 @@ export default function Home() {
     };
   }, []);
 
-  // Demo mode: simulate ETH price feed so the graph and Live ETH are not blank
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    if (authData?.isDemo) {
-      const divisor =
-        (Config as any).ethPriceDecimal ?? (Config as any).btcPriceDecimal ?? 1;
-      // Start near a reasonable ETH price if we have none
-      let last =
-        ethPrices.length > 0
-          ? ethPrices[ethPrices.length - 1]
-          : Math.round(2000 * divisor);
-      interval = setInterval(() => {
-        // random walk with small drift
-        const delta = Math.round(((Math.random() - 0.5) * 5 * divisor) / 100); // ~ +/- 0.05 ETH
-        last = Math.max(1, last + delta);
-        setEthPrices((prev) => {
-          const next = [...prev, last];
-          if (next.length > maxPriceCount) return next.slice(-maxPriceCount);
-          return next;
-        });
-      }, Config.interval.priceUpdate);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [authData?.isDemo]);
+  // Price updates now come universally from WebSocket for all users
+  // No need for demo-specific price simulation
 
   useEffect(() => {
     if (newMessage.message) {
@@ -955,9 +1022,6 @@ export default function Home() {
     return currentRoundStatus === "betting" && activeRoundId !== null;
   };
 
-  // The UI rendering block remains unchanged from your original file
-  // ... (same as in your latest upload)
-  // ── Render ──
   return (
     <div className="w-screen relative">
       {/* MAIN CONTENT - Full Width */}
@@ -1182,19 +1246,12 @@ export default function Home() {
 
       {/* Chat Panel Overlay */}
       {isChatView && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center lg:hidden">
-          <ChatPanel
-            messages={chatData}
-            sendMessage={(msg) => {
-              if (isConnected)
-                dispatch({
-                  type: Config.socketType.sendMessage,
-                  payload: { address, message: msg },
-                });
-            }}
-            onCloseChatRoom={() => setIsChatView(false)}
-            isConnected={isConnected}
-          />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="w-full max-w-md mx-4">
+            <ChatPanel
+              onCloseChatRoom={() => setIsChatView(false)}
+            />
+          </div>
         </div>
       )}
 

@@ -6,7 +6,7 @@ import { web3Service } from '../services/web3Service';
 import { soundService } from '../services/soundService';
 import TokenSelector from './TokenSelector';
 import ChainSelector from './ChainSelector';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 interface DepositPanelProps {
   onDepositSuccess?: (result: DepositResult) => void;

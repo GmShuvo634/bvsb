@@ -4,116 +4,73 @@ const { v4: uuidv4 } = require('uuid');
 
 class DemoService {
   /**
-   * Create or resume a demo session
+   * Create a new demo session or resume existing one for the same IP
    */
-  async createOrResumeSession(ipAddress, userAgent, existingGuestId = null) {
+  async createSession(ipAddress, userAgent = '') {
     try {
-      // Try to resume existing session first
-      if (existingGuestId) {
-        const existing = await DemoSession.findOne({ 
-          guestId: existingGuestId,
-          isActive: true,
-          sessionExpiry: { $gt: new Date() }
-        });
-        
-        if (existing) {
-          // Update last activity
-          existing.lastActivity = new Date();
-          await existing.save();
-          return existing;
-        }
-      }
-
-      // Check if IP has too many recent demo sessions (prevent abuse)
-      const recentSessions = await DemoSession.countDocuments({
+      // First, check if there's an existing active session for this IP
+      const existingSession = await DemoSession.findOne({
         ipAddress,
-        createdAt: { $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
-      });
+        isActive: true,
+        sessionExpiry: { $gt: new Date() }
+      }).sort({ lastActivity: -1 }); // Get the most recent session
 
-      if (recentSessions >= 5) {
-        throw new Error('Too many demo sessions from this IP. Please try again later.');
+      if (existingSession) {
+        // Resume existing session - extend expiry and update activity
+        existingSession.sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        existingSession.lastActivity = new Date();
+        existingSession.userAgent = userAgent; // Update user agent if changed
+        await existingSession.save();
+
+        console.log(`Resumed existing demo session for IP ${ipAddress}: ${existingSession.guestId}, balance: ${existingSession.currentBalance}`);
+
+        return {
+          guestId: existingSession.guestId,
+          balance: existingSession.currentBalance,
+          sessionExpiry: existingSession.sessionExpiry,
+          isResumed: true
+        };
       }
 
-      // Create new demo session
+      // No existing session found, create a new one
       const guestId = uuidv4();
-      const session = await DemoSession.create({
+
+      const session = new DemoSession({
         guestId,
         ipAddress,
         userAgent,
+        currentBalance: 1000,
         initialBalance: 1000,
-        currentBalance: 1000
+        isActive: true,
+        sessionExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
       });
-
-      return session;
-    } catch (error) {
-      console.error('Demo service error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update demo session balance
-   */
-  async updateBalance(guestId, amount, operation = 'bet') {
-    try {
-      const session = await DemoSession.findOne({ 
-        guestId, 
-        isActive: true 
-      });
-
-      if (!session) {
-        throw new Error('Demo session not found or expired');
-      }
-
-      // Check if session is expired
-      if (session.sessionExpiry < new Date()) {
-        session.isActive = false;
-        await session.save();
-        throw new Error('Demo session expired');
-      }
-
-      const oldBalance = session.currentBalance;
-
-      if (operation === 'bet') {
-        if (session.currentBalance < amount) {
-          throw new Error('Insufficient demo balance');
-        }
-        session.currentBalance -= amount;
-        session.totalBets += 1;
-      } else if (operation === 'win') {
-        session.currentBalance += amount;
-        session.totalWins += 1;
-      } else if (operation === 'loss') {
-        session.totalLosses += 1;
-      }
-
-      // Prevent balance from going negative or exceeding reasonable limits
-      session.currentBalance = Math.max(0, Math.min(session.currentBalance, 10000));
-      session.lastActivity = new Date();
 
       await session.save();
 
+      console.log(`Created new demo session for IP ${ipAddress}: ${guestId}`);
+
       return {
-        oldBalance,
-        newBalance: session.currentBalance,
-        session
+        guestId,
+        balance: session.currentBalance,
+        sessionExpiry: session.sessionExpiry,
+        isResumed: false
       };
     } catch (error) {
-      console.error('Demo balance update error:', error);
-      throw error;
+      console.error('Demo service - Create session error:', error);
+      throw new Error('Failed to create demo session');
     }
   }
 
   /**
-   * Get demo session info
+   * Get demo session by IP address
    */
-  async getSession(guestId) {
+  async getSessionByIP(ipAddress) {
     try {
-      const session = await DemoSession.findOne({ 
-        guestId, 
+      const session = await DemoSession.findOne({
+        ipAddress,
         isActive: true,
         sessionExpiry: { $gt: new Date() }
-      });
+      }).sort({ lastActivity: -1 }); // Get the most recent session
 
       if (!session) {
         return null;
@@ -125,26 +82,148 @@ class DemoService {
 
       return session;
     } catch (error) {
-      console.error('Get demo session error:', error);
+      console.error('Demo service - Get session by IP error:', error);
       return null;
     }
   }
 
   /**
-   * Mark session as registered (prevent multiple demo accounts)
+   * Get demo session by guest ID
    */
-  async markAsRegistered(guestId, userId) {
+  async getSession(guestId) {
     try {
-      await DemoSession.updateOne(
-        { guestId },
-        { 
-          hasRegistered: true, 
-          registeredUserId: userId,
-          isActive: false // Deactivate demo session after registration
-        }
-      );
+      const session = await DemoSession.findOne({
+        guestId,
+        isActive: true,
+        sessionExpiry: { $gt: new Date() }
+      });
+
+      if (!session) {
+        return null;
+      }
+
+      // Update last activity and extend session if needed
+      session.lastActivity = new Date();
+
+      // Extend session expiry if it's close to expiring (within 1 hour)
+      const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+      if (session.sessionExpiry < oneHourFromNow) {
+        session.sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // Extend by 24 hours
+        console.log(`Extended demo session expiry for ${guestId}`);
+      }
+
+      await session.save();
+
+      return session;
     } catch (error) {
-      console.error('Mark registered error:', error);
+      console.error('Demo service - Get session error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update demo user balance
+   */
+  async updateBalance(guestId, amount, operation = 'bet') {
+    try {
+      const session = await this.getSession(guestId);
+
+      if (!session) {
+        throw new Error('Demo session not found or expired');
+      }
+
+      const oldBalance = session.currentBalance;
+      let newBalance = oldBalance;
+
+      switch (operation) {
+        case 'bet':
+          // Deduct bet amount
+          if (session.currentBalance < amount) {
+            throw new Error('Insufficient demo balance');
+          }
+          newBalance = session.currentBalance - amount;
+          session.totalBets += 1;
+          break;
+
+        case 'win':
+          // Add winnings
+          newBalance = session.currentBalance + amount;
+          session.totalWins += 1;
+          break;
+
+        case 'loss':
+          // No balance change for losses, just update stats
+          session.totalLosses += 1;
+          break;
+
+        case 'reset':
+          // Reset to initial balance
+          newBalance = session.initialBalance;
+          session.totalBets = 0;
+          session.totalWins = 0;
+          session.totalLosses = 0;
+          break;
+
+        default:
+          throw new Error('Invalid balance operation');
+      }
+
+      session.currentBalance = newBalance;
+      await session.save();
+
+      return {
+        oldBalance,
+        newBalance,
+        operation,
+        sessionStats: {
+          totalBets: session.totalBets,
+          totalWins: session.totalWins,
+          totalLosses: session.totalLosses
+        }
+      };
+    } catch (error) {
+      console.error('Demo service - Update balance error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset demo session
+   */
+  async resetSession(guestId) {
+    try {
+      const result = await this.updateBalance(guestId, 0, 'reset');
+      return result;
+    } catch (error) {
+      console.error('Demo service - Reset session error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh session expiry to prevent expiration during active gameplay
+   */
+  async refreshSession(guestId) {
+    try {
+      const session = await DemoSession.findOne({
+        guestId,
+        isActive: true
+      });
+
+      if (!session) {
+        return null;
+      }
+
+      // Extend session by 24 hours
+      session.sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      session.lastActivity = new Date();
+      await session.save();
+
+      console.log(`Refreshed demo session for ${guestId}`);
+      return session;
+    } catch (error) {
+      console.error('Demo service - Refresh session error:', error);
+      return null;
     }
   }
 
@@ -153,40 +232,18 @@ class DemoService {
    */
   async cleanupExpiredSessions() {
     try {
-      const result = await DemoSession.updateMany(
-        { sessionExpiry: { $lt: new Date() } },
-        { isActive: false }
-      );
-      console.log(`Cleaned up ${result.modifiedCount} expired demo sessions`);
-      return result.modifiedCount;
+      const result = await DemoSession.deleteMany({
+        $or: [
+          { sessionExpiry: { $lt: new Date() } },
+          { isActive: false }
+        ]
+      });
+
+      console.log(`Cleaned up ${result.deletedCount} expired demo sessions`);
+      return result.deletedCount;
     } catch (error) {
-      console.error('Cleanup expired sessions error:', error);
+      console.error('Demo service - Cleanup error:', error);
       return 0;
-    }
-  }
-
-  /**
-   * Get demo session statistics
-   */
-  async getSessionStats(guestId) {
-    try {
-      const session = await DemoSession.findOne({ guestId });
-      if (!session) return null;
-
-      return {
-        guestId: session.guestId,
-        balance: session.currentBalance,
-        totalBets: session.totalBets,
-        totalWins: session.totalWins,
-        totalLosses: session.totalLosses,
-        winRate: session.totalBets > 0 ? (session.totalWins / session.totalBets * 100).toFixed(1) : 0,
-        isActive: session.isActive,
-        timeRemaining: session.sessionExpiry > new Date() ? 
-          Math.max(0, session.sessionExpiry - new Date()) : 0
-      };
-    } catch (error) {
-      console.error('Get session stats error:', error);
-      return null;
     }
   }
 }

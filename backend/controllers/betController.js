@@ -8,7 +8,7 @@ const AuditLog = require('../models/AuditLog');
 exports.placeBet = async (req, res, next) => {
   try {
     const { amount, direction, isDemo } = req.body;
-    
+
     if (!amount || !direction || !['up', 'down'].includes(direction)) {
       return res.status(400).json({ error: 'Invalid bet parameters' });
     }
@@ -40,7 +40,7 @@ exports.placeBet = async (req, res, next) => {
     // Place bet through game service
     const result = await gameService.placeBet(
       userId,
-      guestId, 
+      guestId,
       address,
       amount,
       direction,
@@ -72,15 +72,15 @@ exports.placeBet = async (req, res, next) => {
 
   } catch (err) {
     console.error('Place bet error:', err);
-    
+
     if (err.message.includes('No active betting round')) {
       return res.status(400).json({ error: 'No active betting round' });
     }
-    
+
     if (err.message.includes('Already placed bet')) {
       return res.status(400).json({ error: 'Already placed bet in this round' });
     }
-    
+
     if (err.message.includes('Insufficient')) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }
@@ -97,10 +97,10 @@ exports.placeBet = async (req, res, next) => {
 exports.getCurrentRound = async (req, res, next) => {
   try {
     const roundInfo = gameService.getCurrentRound();
-    
+
     if (!roundInfo) {
-      return res.json({ 
-        roundId: null, 
+      return res.json({
+        roundId: null,
         status: 'waiting',
         upPoolTotal: 0,
         downPoolTotal: 0,
@@ -122,7 +122,7 @@ exports.getBetHistory = async (req, res, next) => {
   try {
     const isDemo = req.query.isDemo === 'true';
     const limit = parseInt(req.query.limit) || 10;
-    
+
     let userId = null;
     let guestId = null;
 
@@ -139,7 +139,7 @@ exports.getBetHistory = async (req, res, next) => {
     }
 
     const history = await gameService.getUserHistory(userId, guestId, limit);
-    
+
     res.json({
       history,
       total: history.length
@@ -154,17 +154,19 @@ exports.getBetHistory = async (req, res, next) => {
 // GET /api/bet/balance
 exports.getBalance = async (req, res, next) => {
   try {
-    const isDemo = req.query.isDemo === 'true';
-    
-    if (isDemo) {
-      const guestId = req.signedCookies?.gid || req.query.guestId;
-      if (!guestId) {
-        return res.status(400).json({ error: 'Demo session required' });
-      }
+    // Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Check if this is a demo user (from auth middleware)
+    if (req.user.type === 'demo' || req.user.isDemo) {
+      // Handle demo user - get session by guestId
+      const guestId = req.user.guestId || req.user._id;
 
       const session = await demoService.getSession(guestId);
       if (!session) {
-        return res.status(404).json({ error: 'Demo session not found' });
+        return res.status(404).json({ error: 'Demo session not found or expired' });
       }
 
       res.json({
@@ -177,10 +179,7 @@ exports.getBalance = async (req, res, next) => {
         }
       });
     } else {
-      if (!req.user) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
+      // Handle real user - req.user._id should be a valid MongoDB ObjectId
       const user = await User.findById(req.user._id);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
@@ -206,13 +205,13 @@ exports.settleRound = async (req, res, next) => {
     }
 
     const { startPrice, endPrice } = req.body;
-    
+
     if (!startPrice || !endPrice) {
       return res.status(400).json({ error: 'Start and end prices required' });
     }
 
     const result = await gameService.settleRound(startPrice, endPrice);
-    
+
     res.json({
       success: true,
       roundId: result.roundId,

@@ -1,76 +1,62 @@
 // backend/controllers/demoController.js
-const { v4: uuidv4 } = require('uuid');
-const jwt  = require('jsonwebtoken');
-const User = require('../models/userModel');
-const DemoSession = require('../models/DemoSession');
+const jwt = require('jsonwebtoken');
 const demoService = require('../services/demoService');
-const AuditLog = require('../models/AuditLog');
 
-// POST /api/auth/demo
+/**
+ * Start demo mode - create a demo session and return JWT token
+ */
 exports.startDemo = async (req, res, next) => {
   try {
-    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString();
-    const userAgent = req.get('User-Agent') || 'unknown';
-    const cookieGuestId = req.signedCookies?.gid;
-    const providedGuestId = req.body?.guestId;
+    // Get client IP and user agent
+    const ipAddress = req.ip || req.connection.remoteAddress || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || '';
 
-    // Create or resume demo session
-    const session = await demoService.createOrResumeSession(
-      ip, 
-      userAgent, 
-      cookieGuestId || providedGuestId
+    // Create demo session
+    const sessionData = await demoService.createSession(ipAddress, userAgent);
+
+    // Create JWT token for demo user
+    const token = jwt.sign(
+      { 
+        sub: sessionData.guestId,
+        type: 'demo',
+        isDemo: true,
+        isAdmin: false
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
     );
 
-    // Set signed httpOnly cookie for persistence
-    res.cookie('gid', session.guestId, { 
-      httpOnly: true, 
-      sameSite: 'lax', 
-      signed: true, 
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    // Set guest ID cookie for session tracking
+    res.cookie('gid', sessionData.guestId, {
+      signed: true,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax'
     });
 
-    // Create JWT token for demo session
-    const token = jwt.sign({ 
-      sub: session.guestId, 
-      type: 'demo',
-      isDemo: true 
-    }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-    // Log demo start
-    await AuditLog.create({ 
-      userId: null,
-      guestId: session.guestId, 
-      eventType: 'demo_start', 
-      amount: 0, 
-      beforeBal: session.currentBalance, 
-      afterBal: session.currentBalance, 
-      metadata: { ip, userAgent, sessionId: session._id } 
+    res.json({
+      success: true,
+      token,
+      user: {
+        guestId: sessionData.guestId,
+        id: sessionData.guestId,
+        balance: sessionData.balance,
+        isDemo: true
+      },
+      sessionExpiry: sessionData.sessionExpiry
     });
 
-    return res.json({ 
-      token, 
-      user: { 
-        id: session.guestId, 
-        balance: session.currentBalance, 
-        isDemo: true, 
-        guestId: session.guestId,
-        sessionStats: {
-          totalBets: session.totalBets,
-          totalWins: session.totalWins,
-          totalLosses: session.totalLosses
-        }
-      } 
+  } catch (error) {
+    console.error('Start demo error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to start demo mode' 
     });
-  } catch (err) {
-    console.error('Demo start error:', err);
-    if (err.message.includes('Too many demo sessions')) {
-      return res.status(429).json({ error: err.message });
-    }
-    next(err);
   }
 };
 
-// GET /api/auth/demo/status
+/**
+ * Get demo session status
+ */
 exports.getDemoStatus = async (req, res, next) => {
   try {
     const guestId = req.signedCookies?.gid || req.query.guestId;
@@ -79,62 +65,74 @@ exports.getDemoStatus = async (req, res, next) => {
       return res.status(400).json({ error: 'No demo session found' });
     }
 
-    const stats = await demoService.getSessionStats(guestId);
+    const session = await demoService.getSession(guestId);
     
-    if (!stats) {
+    if (!session) {
       return res.status(404).json({ error: 'Demo session not found or expired' });
     }
 
-    res.json(stats);
-  } catch (err) {
-    console.error('Get demo status error:', err);
-    next(err);
+    res.json({
+      success: true,
+      session: {
+        guestId: session.guestId,
+        balance: session.currentBalance,
+        totalBets: session.totalBets,
+        totalWins: session.totalWins,
+        totalLosses: session.totalLosses,
+        sessionExpiry: session.sessionExpiry,
+        lastActivity: session.lastActivity
+      }
+    });
+
+  } catch (error) {
+    console.error('Get demo status error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to get demo status' 
+    });
   }
 };
 
-// POST /api/auth/demo/reset
+/**
+ * Reset demo session
+ */
 exports.resetDemo = async (req, res, next) => {
   try {
-    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString();
-    const userAgent = req.get('User-Agent') || 'unknown';
+    const guestId = req.signedCookies?.gid || req.body.guestId;
     
-    // Create new demo session (this will check IP limits)
-    const session = await demoService.createOrResumeSession(ip, userAgent);
+    if (!guestId) {
+      return res.status(400).json({ error: 'No demo session found' });
+    }
 
-    // Update cookie
-    res.cookie('gid', session.guestId, { 
-      httpOnly: true, 
-      sameSite: 'lax', 
-      signed: true, 
-      maxAge: 24 * 60 * 60 * 1000 
-    });
+    const result = await demoService.resetSession(guestId);
 
     // Create new JWT token
-    const token = jwt.sign({ 
-      sub: session.guestId, 
-      type: 'demo',
-      isDemo: true 
-    }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign(
+      { 
+        sub: guestId,
+        type: 'demo',
+        isDemo: true,
+        isAdmin: false
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
 
-    res.json({ 
-      token, 
-      user: { 
-        id: session.guestId, 
-        balance: session.currentBalance, 
-        isDemo: true, 
-        guestId: session.guestId,
-        sessionStats: {
-          totalBets: session.totalBets,
-          totalWins: session.totalWins,
-          totalLosses: session.totalLosses
-        }
-      } 
+    res.json({
+      success: true,
+      token,
+      user: {
+        guestId: guestId,
+        id: guestId,
+        balance: result.newBalance,
+        isDemo: true
+      },
+      message: 'Demo session reset successfully'
     });
-  } catch (err) {
-    console.error('Reset demo error:', err);
-    if (err.message.includes('Too many demo sessions')) {
-      return res.status(429).json({ error: err.message });
-    }
-    next(err);
+
+  } catch (error) {
+    console.error('Reset demo error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to reset demo session' 
+    });
   }
 };

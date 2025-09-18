@@ -6,17 +6,85 @@ import { Icon, IconType } from "@/components/icons";
 import styled, { keyframes } from "styled-components";
 import { RecentProps } from "@/pages/play";
 import { getDashboardData } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 // Animations
-const historyAnim = keyframes` ... `; // same as before
-const HistoryAnimButton = styled.button`animation: ${historyAnim} 0.5s ease-in-out forwards;`;
-const historyDetailAnim = keyframes` ... `;
-const HistoryDetailAnimDiv = styled.div`animation: ${historyDetailAnim} 0.5s ease-in-out forwards;`;
-const notificationAnim = keyframes` ... `;
-const NotificationAnimDiv = styled.div`animation: ${notificationAnim} 8s ease-in-out forwards;`;
-const alignAnim = keyframes` ... `;
-const AlignAnimDiv = styled.div`animation: ${alignAnim} 8s ease-in-out forwards;`;
+
+const historyAnim = keyframes`
+  0%{
+    width: 0px;
+  }
+  50% {
+    width: 30px;
+  }
+  100% {
+    width: 60px;
+  }
+`;
+
+const HistoryAnimButton = styled.button`
+  animation: ${historyAnim} 0.5s ease-in-out forwards;
+`;
+
+const historyDetailAnim = keyframes`
+  0%{
+    height: 0px;
+  }
+  100% {
+    height: 128px
+  }
+`;
+
+const HistoryDetailAnimDiv = styled.div`
+  animation: ${historyDetailAnim} 0.5s ease-in-out forwards;
+`;
+
+const notificationAnim = keyframes`
+  0%, 10%, 20% {
+    color: white;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+  5%, 15% {
+    color: white;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1.5);
+  }
+  25% {
+    color: #fff699;
+    transform: translate(0, 0) scale(1);
+    top: 10px;
+    left: 20px;
+  }
+  100% {
+    color: #fff699;
+    top: 10px;
+    left: 20px;
+    transform: translate(0, 0) scale(1);
+  }
+`;
+
+const NotificationAnimDiv = styled.div`
+  animation: ${notificationAnim} 8s ease-in-out forwards;
+`;
+
+const alignAnim = keyframes`
+  0%, 20% {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  25%, 100% {
+    left: 0;
+    transform: translateX(0);
+  }
+`;
+
+const AlignAnimDiv = styled.div`
+  animation: ${alignAnim} 8s ease-in-out forwards;
+`;
+
 
 interface GraphPanelProps {
   ethPrices?: number[];
@@ -35,7 +103,8 @@ const refreshPriceCount = Config.roundTime.refresh / Config.interval.priceUpdate
 const maxPriceCount = basicPriceCount + preparePriceCount + playPriceCount + refreshPriceCount;
 
 export default function GraphPanel(props: GraphPanelProps) {
-  const priceDivisor = (Config as any).ethPriceDecimal ?? (Config as any).btcPriceDecimal ?? 1;
+  // Ensure we have a valid price divisor to prevent NaN calculations
+  const priceDivisor = (Config as any).ethPriceDecimal ?? (Config as any).btcPriceDecimal ?? 1000000;
   const { ethPrices: ethPricesProp = [], btcPrices = [], jackpot, histories } = props;
   const ethPrices = ethPricesProp.length ? ethPricesProp : btcPrices;
   const [typicalPrices, setTypicalPrices] = useState<number[]>([]);
@@ -55,7 +124,7 @@ export default function GraphPanel(props: GraphPanelProps) {
   const [livePlayers, setLivePlayers] = useState(0);
   const [winsPaid, setWinsPaid] = useState(0);
   const [allTimeWinsPaid, setAllTimeWinsPaid] = useState(0);
-  const [totalTrades, setTotalTrades]         = useState(0);
+  const [totalTrades, setTotalTrades] = useState(0);
 
   const [lastMaxPrice, setLastMaxPrice] = useState(0);
   const [lastMinPrice, setLastMinPrice] = useState(0);
@@ -96,14 +165,14 @@ const loadDashboardStats = async () => {
 
   // Recalculate graph on new ETH prices
   useEffect(() => {
-  // don’t run if no prices yet
+  // don't run if no prices yet
   if (ethPrices.length === 0) return;
 
   const priceCount = ethPrices.length;
   let newMax = Math.max(...ethPrices);
   let newMin = Math.min(...ethPrices);
 
-  // preserve previous extremes during the “play” window
+  // preserve previous extremes during the "play" window
   if (
     priceCount > basicPriceCount + preparePriceCount &&
     priceCount < basicPriceCount + preparePriceCount + playPriceCount &&
@@ -199,7 +268,27 @@ const loadDashboardStats = async () => {
     <div className="relative w-full h-full rounded-2xl border-2 border-solid border-[#ffef92] flex flex-row items-center overflow-hidden">
       {/* Background layers */}
       <div className="absolute flex flex-col w-full h-full">
-        {/* ... same gradient code ... */}
+        <div
+          className="w-full bg-gradient-to-b from-[#003f2e] to-[#00e185] transition-all ease-in-out duration-100"
+          style={{
+            height: `${((playingDepth ? startPlayVerticalPosition : lastPricePosition) *
+              100) /
+              graphVerticalRatio
+              }%`,
+          }}
+        />
+        <div
+          className="w-full bg-gradient-to-b from-[#dc0000] to-[#470004] border-t border-solid border-[#babef4] transition-all ease-in-out duration-100"
+          style={{
+            height: `${((graphVerticalRatio -
+              (playingDepth
+                ? startPlayVerticalPosition
+                : lastPricePosition)) *
+              100) /
+              graphVerticalRatio
+              }%`,
+          }}
+        />
       </div>
 
       {/* Price grid */}
@@ -215,17 +304,100 @@ const loadDashboardStats = async () => {
       </div>
 
       {/* Main chart */}
-      <div className="absolute h-full top-0 left-0" style={{ width: `${graphHorizontalWidth}%` }}>
-        <ChartJs2Graph dotPositions={dotPositions} playingDepth={playingDepth} color="#fff699" />
+      <div
+        className={`absolute h-full top-0 left-0 ${dotPositions.length > basicPriceCount + refreshPriceCount
+          ? "opacity-100"
+          : "opacity-0"
+          }`}
+        style={{
+          width: `${graphHorizontalWidth}%`,
+        }}
+      >
+        <ChartJs2Graph
+          dotPositions={dotPositions}
+          playingDepth={playingDepth}
+          color="#fff699"
+        />
+      </div>
+      <div
+        className={`absolute h-full top-0 left-0 ${dotPositions.length > basicPriceCount + refreshPriceCount
+          ? "opacity-0"
+          : "opacity-100"
+          }`}
+        style={{
+          width: `${graphHorizontalWidth}%`,
+        }}
+      >
+        <ChartJs2Graph
+          dotPositions={extraDotPositions}
+          playingDepth={playingDepth}
+          color="#fff699"
+        />
+      </div>
+
+      {/* Animated dot at the end of the chart */}
+      <div
+        className="absolute w-3 h-3 translate-x-[-6px] translate-y-[-6px] rounded-full bg-[#fff699] transition-all ease-in-out duration-100"
+        style={{
+          left: `${graphHorizontalWidth}%`,
+          top: `${(lastPricePosition * 100) / graphVerticalRatio}%`,
+        }}
+      />
+
+      {/* Flag indicators for start/end of play period */}
+      <div
+        className={`absolute h-full flex flex-col justify-between gap-2 py-3 transition-all ease-linear ${dotPositions.length >
+          maxPriceCount - Math.floor(3000 / Config.interval.priceUpdate) ||
+          dotPositions.length <
+          basicPriceCount + Math.floor(1000 / Config.interval.priceUpdate)
+          ? "opacity-0"
+          : "opacity-100"
+          }`}
+        style={{
+          left: `${startPlayHorizontalPosition}%`,
+          width: `${playingDepth
+            ? (graphHorizontalWidth * playPriceCount) / basicPriceCount +
+            ((graphHorizontalWidth * playPriceCount) / basicPriceCount) *
+            (playingDepth /
+              Math.floor(Config.zoomTime / Config.interval.priceUpdate))
+            : (graphHorizontalWidth * playPriceCount) / basicPriceCount
+            }%`,
+          transitionDuration: `${Config.interval.priceUpdate}ms`,
+        }}
+      >
+        <div className="flex flex-row items-center justify-between w-full h-5">
+          <Icon
+            type={IconType.FLAG_START}
+            className="w-5 h-5 fill-[#fff699] translate-x-[-8px]"
+          />
+          <Icon
+            type={IconType.FLAG_END}
+            className="w-5 h-5 fill-[#fff699]  translate-x-[14px]"
+          />
+        </div>
+        <div className="w-full h-full border-x border-dashed border-[#fff699]" />
       </div>
 
       {/* Ticker */}
-      <div className="absolute w-full h-[3px] bg-[#ffef92] flex justify-end px-1 sm:px-2" style={{ top: `calc(${(lastPricePosition * 100) / graphVerticalRatio}% - 1px)` }}>
+      <div
+        className="absolute w-full h-[3px] bg-[#ffef92] flex justify-end px-1 sm:px-2 transition-all ease-in-out duration-100"
+        style={{
+          top: `calc(${(lastPricePosition * 100) / graphVerticalRatio}% - 1px)`,
+        }}
+      >
         <div className="relative py-1 px-2 rounded-lg border border-[#fff699] bg-[#111016] flex flex-col items-center">
           <span className="absolute -top-3 bg-[#fff699] rounded-md px-2 text-xs font-bold text-[#111016] whitespace-nowrap">
             Live ETH
           </span>
-          <span className="text-[#fff699] font-bold text-sm sm:text-xl">
+          <span
+            className={`${!playingDepth ||
+              dotPositions.length >= maxPriceCount - refreshPriceCount
+              ? "text-[#fff699]"
+              : lastPricePosition > startPlayVerticalPosition
+                ? "text-[#ff1616]"
+                : "text-[#2dffb5]"
+              } font-open-sans font-bold text-sm sm:text-xl`}
+          >
             {ethPrices.length > 0
               ? parseFloat((liveEthPrice / priceDivisor).toString()).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })
               : 'Waiting for prices...'}
@@ -235,20 +407,93 @@ const loadDashboardStats = async () => {
 
       {/* Start rate */}
       {playingDepth > 0 && (
-        <div className="absolute w-full h-[1px] flex justify-start px-1 sm:px-2" style={{ top: `${(startPlayVerticalPosition * 100) / graphVerticalRatio}%`, transitionDuration: `${Config.interval.priceUpdate}ms` }}>
+        <div
+          className="absolute w-full h-[1px] flex justify-start px-1 sm:px-2 transition-all ease-in-out duration-500"
+          style={{
+            top: `${(startPlayVerticalPosition * 100) / graphVerticalRatio}%`,
+            transitionDuration: `${Config.interval.priceUpdate}ms`
+          }}
+        >
           <div className="relative py-1 px-2 rounded-lg border border-[#fff699] bg-[#111016] flex flex-col items-center">
             <span className="absolute -top-3 bg-[#fff699] rounded-md px-2 text-xs font-bold text-[#111016] whitespace-nowrap">
               Start Rate
             </span>
-            <span className="text-[#fff699] font-bold text-sm sm:text-xl">
-              {parseFloat((startEthPrice / priceDivisor).toString()).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+            <span className="text-[#fff699] font-open-sans font-bold text-sm sm:text-xl">
+              {(() => {
+                // Validate inputs to prevent NaN display
+                if (!startEthPrice || !priceDivisor || priceDivisor === 0) {
+                  return "0.0000";
+                }
+                const calculatedRate = startEthPrice / priceDivisor;
+                if (isNaN(calculatedRate) || !isFinite(calculatedRate)) {
+                  return "0.0000";
+                }
+                return parseFloat(calculatedRate.toString()).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+              })()}
             </span>
           </div>
         </div>
       )}
 
-      {/* Alerts and history panels ... unchanged except decimal conversions ... */}
+      {/* Alerts */}
+      {isAlertStart && (
+        <div className="absolute w-full h-full">
+          <NotificationAnimDiv className="absolute h-12 sm:h-[88px] text-[#ffffff] font-oswald text-xl sm:text-4xl leading-tight text-center whitespace-nowrap flex flex-col">
+            <AlignAnimDiv className="absolute">{alertText[0]}</AlignAnimDiv>
+            <AlignAnimDiv className="absolute bottom-0">
+              {alertText[1]}
+            </AlignAnimDiv>
+          </NotificationAnimDiv>
+        </div>
+      )}
 
+      {/* History and Jackpot Panel */}
+      <div className="absolute bottom-0 flex flex-row items-end gap-8 px-3 py-3">
+        <Link href="/weekly_jackpot" className="min-w-[100px] bg-[#fff699] flex flex-col items-center rounded-lg overflow-hidden">
+          <span className="w-full px-4 py-2 bg-black text-[#fff699] text-center font-oswald text-xl">
+            JACKPOT
+          </span>
+          <span className="px-3 py-1 text-xl text-center font-oswald">
+            {jackpot.toLocaleString(undefined, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 4,
+            })}
+          </span>
+        </Link>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-end">
+            <span className="text-xs 2xl:text-[1em] font-semibold text-[#cec5b7] align-bottom uppercase mr-6">
+              24h win<br /> ratio:
+            </span>
+            <span className="flex items-center text-xs 2xl:text-[1.1em] font-semibold text-[#f4d56f] mt-[-0.02em] mr-[0.45em] ml-[0.2em]">
+              <span style={{
+                transition: "all 0.8s ease-out 0s"
+              }}>{winRatio}</span>
+              %
+            </span>
+            <span className="hidden sm:block text-xs 2xl:text-[1em] border-l-[0.1em] border-[#cec5b7] pl-[0.45em] font-semibold text-[#cec5b7] align-bottom uppercase mr-6">
+              24h live<br /> players:
+            </span>
+            <span className="hidden sm:flex items-center text-xs 2xl:text-[1.1em] font-semibold text-[#f4d56f] mt-[-0.02em] mr-[0.45em] ml-[0.2em]">{livePlayers}</span>
+            <span className="hidden sm:block text-xs 2xl:text-[1em] border-l-[0.1em] border-[#cec5b7] pl-[0.45em] font-semibold text-[#cec5b7] align-bottom uppercase mr-6">
+              24h wins<br /> paid:
+            </span>
+            <span className="hidden sm:flex items-center text-xs 2xl:text-[1.1em] font-semibold text-[#f4d56f] mt-[-0.02em] mr-[0.45em] ml-[0.2em]">{winsPaid}</span>
+            <span className="hidden sm:block text-xs 2xl:text-[1em] border-l-[0.1em] border-[#cec5b7] pl-[0.45em] font-semibold text-[#cec5b7] align-bottom uppercase mr-6">
+              all time<br /> wins paid:
+            </span>
+            <span className="hidden sm:flex items-center text-xs 2xl:text-[1.1em] font-semibold text-[#f4d56f] mt-[-0.02em] mr-[0.45em] ml-[0.2em]">{allTimeWinsPaid}</span>
+          </div>
+          <div className="flex flex-wrap h-[50px] gap-8">
+            {histories.length > 0 &&
+              histories.map((item, index) => (
+                <div key={index}>
+                  <UpVsDownHistory start={item.startPrice} end={item.endPrice} priceDivisor={priceDivisor} />
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -273,10 +518,20 @@ const UpVsDownHistory: React.FC<{ start: number; end: number; priceDivisor: numb
           <HistoryDetailAnimDiv className="h-32 w-28 flex flex-col items-center justify-center rounded-xl bg-[#262735]">
             <span className="text-xs text-[#777a99]">START RATE</span>
             <span className="text-base text-white">
-              {(start / priceDivisor).toLocaleString(undefined, {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 4,
-              })}
+              {(() => {
+                // Validate inputs to prevent NaN display in history
+                if (!start || !priceDivisor || priceDivisor === 0) {
+                  return "0.0000";
+                }
+                const calculatedRate = start / priceDivisor;
+                if (isNaN(calculatedRate) || !isFinite(calculatedRate)) {
+                  return "0.0000";
+                }
+                return calculatedRate.toLocaleString(undefined, {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 4,
+                });
+              })()}
             </span>
             <div className="w-full h-[2px] bg-[#3f404f] my-1" />
             <span className="text-xs text-[#777a99]">END RATE</span>
@@ -287,9 +542,9 @@ const UpVsDownHistory: React.FC<{ start: number; end: number; priceDivisor: numb
               })}
             </span>
           </HistoryDetailAnimDiv>
+          <div className="w-3 h-3 rotate-45 absolute bg-[#262735] -bottom-[6px] border-r-2 border-b-2 border-solid border-[#3f404f]" />
         </div>
       )}
     </div>
   );
 };
-

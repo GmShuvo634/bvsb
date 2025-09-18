@@ -8,7 +8,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { Config } from "@/config";
 import { getDisplayString } from "@/utils/utils";
 import { userDisconnect } from "@/components/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 interface JackpotHeaderProps {
   avatar: string;

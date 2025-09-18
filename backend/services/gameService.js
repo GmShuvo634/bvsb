@@ -4,6 +4,7 @@ const DemoSession = require('../models/DemoSession');
 const User = require('../models/userModel');
 const Pool = require('../models/Pool');
 const demoService = require('./demoService');
+const statsService = require('./statsService');
 const { v4: uuidv4 } = require('uuid');
 const bus = require('../sockets/bus');
 
@@ -20,8 +21,8 @@ class GameService {
   async initializeGame() {
     try {
       // Check for active round
-      this.currentRound = await GameRound.findOne({ 
-        status: { $in: ['waiting', 'betting', 'playing'] } 
+      this.currentRound = await GameRound.findOne({
+        status: { $in: ['waiting', 'betting', 'playing'] }
       }).sort({ createdAt: -1 });
 
       if (!this.currentRound) {
@@ -45,7 +46,7 @@ class GameService {
   async startNewRound() {
     try {
       const roundId = uuidv4();
-      
+
       this.currentRound = await GameRound.create({
         roundId,
         status: 'betting',
@@ -119,7 +120,7 @@ class GameService {
       }
 
       // Check if user already bet in this round
-      const existingBet = this.currentRound.bets.find(bet => 
+      const existingBet = this.currentRound.bets.find(bet =>
         (userId && bet.userId?.toString() === userId.toString()) ||
         (guestId && bet.guestId === guestId) ||
         (address && bet.address === address)
@@ -136,7 +137,7 @@ class GameService {
         if (!guestId) {
           throw new Error('Guest ID required for demo bets');
         }
-        
+
         balanceUpdate = await demoService.updateBalance(guestId, amount, 'bet');
       } else {
         // Handle real user bet
@@ -186,6 +187,11 @@ class GameService {
       }
 
       await this.currentRound.save();
+
+      // Update user statistics for bet placement
+      if (!isDemo && userId) {
+        await statsService.updateUserBetStats(userId, amount, false);
+      }
 
       // Update Pool model for compatibility
       await Pool.updateOne(
@@ -242,69 +248,6 @@ class GameService {
   }
 
   /**
-   * Broadcast individual player data to frontend
-   */
-  broadcastPlayersUpdate() {
-    if (!this.currentRound) return;
-
-    // Generate player data from current round bets
-    const players = this.currentRound.bets.map((bet, index) => ({
-      address: bet.address || (bet.isDemo ? `demo-${bet.guestId}` : 'unknown'),
-      avatar: this.generateAvatar(bet, index),
-      country: this.generateCountry(bet, index),
-      bettedBalance: bet.amount,
-      isUpPool: bet.direction === 'up'
-    }));
-
-    console.log('[GameService] Broadcasting players update:', players.length, 'players');
-    console.log('[GameService] Player data:', JSON.stringify(players, null, 2));
-
-    // Broadcast players using the expected message type
-    bus.broadcast('players', players);
-  }
-
-  /**
-   * Generate avatar for player (using UI Avatars service with random names)
-   */
-  generateAvatar(bet, index) {
-    // Generate random names for avatars
-    const firstNames = [
-      'John', 'Jane', 'Mike', 'Sarah', 'David', 'Emily', 'Chris', 'Lisa',
-      'Alex', 'Maria', 'James', 'Anna', 'Robert', 'Emma', 'Daniel', 'Sophia'
-    ];
-    const lastNames = [
-      'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
-      'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas'
-    ];
-    
-    // Use bet address or guestId as seed for consistent randomness per user
-    const seed = bet.address || bet.guestId || index.toString();
-    const seedNum = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    
-    const firstName = firstNames[seedNum % firstNames.length];
-    const lastName = lastNames[(seedNum + 7) % lastNames.length];
-    const fullName = `${firstName}+${lastName}`;
-    
-    // Return UI Avatars URL with random background colors
-    const colors = ['3498db', 'e74c3c', '2ecc71', 'f39c12', '9b59b6', '1abc9c', 'e67e22', '34495e'];
-    const bgColor = colors[seedNum % colors.length];
-    
-    return `https://eu.ui-avatars.com/api/?name=${fullName}&size=250&background=${bgColor}&color=fff&bold=true`;
-  }
-
-  /**
-   * Generate country for player (using index-based mock data)
-   */
-  generateCountry(bet, index) {
-    // Use a set of countries cycling through them
-    const countries = [
-      'US', 'UK', 'CA', 'DE', 'FR', 'JP', 'AU', 'BR', 
-      'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'CH'
-    ];
-    return countries[index % countries.length];
-  }
-
-  /**
    * Get current round info
    */
   getCurrentRound() {
@@ -331,7 +274,7 @@ class GameService {
     if (!this.currentRound) return 0;
 
     const now = new Date();
-    
+
     switch (this.currentRound.status) {
       case 'betting':
         return Math.max(0, this.currentRound.bettingEndTime - now);
@@ -374,12 +317,12 @@ class GameService {
       this.currentRound.houseFee = houseFee;
       this.currentRound.totalPayout = availablePayout;
 
-      // Calculate individual payouts and broadcast balance updates
+      // Calculate individual payouts with 80% profit system
       for (const bet of this.currentRound.bets) {
         if (bet.direction === this.currentRound.winningPool) {
-          // Winner gets their bet back plus proportional share of losing pool
-          const proportion = bet.amount / totalWinningAmount;
-          bet.payout = bet.amount + (totalLosingAmount - houseFee) * proportion;
+          // Winner gets their bet back + 80% profit
+          // Payout = original bet + (original bet * 0.8)
+          bet.payout = bet.amount + (bet.amount * 0.8);
           bet.result = 'win';
 
           // Update balances
@@ -400,19 +343,27 @@ class GameService {
               userId: bet.userId.toString(),
               balance: updatedUser.balance
             });
+
+            // Update user statistics for win
+            await statsService.updateUserSettlementStats(bet.userId, bet.amount, bet.payout, 'win', false);
           }
         } else {
+          // Loser gets nothing (bet was already deducted during placement)
           bet.payout = 0;
           bet.result = 'loss';
 
+          // For demo users, we still need to sync the balance (no change needed)
           if (bet.isDemo && bet.guestId) {
             const balanceUpdate = await demoService.updateBalance(bet.guestId, 0, 'loss');
-            // Broadcast demo balance update (even for losses to sync UI)
+            // Broadcast demo balance update (to keep UI in sync)
             bus.broadcast('balanceUpdate', {
               guestId: bet.guestId,
               balance: balanceUpdate.newBalance,
               isDemo: true
             });
+          } else if (bet.userId) {
+            // Update user statistics for loss
+            await statsService.updateUserSettlementStats(bet.userId, bet.amount, 0, 'loss', false);
           }
         }
       }
@@ -447,7 +398,7 @@ class GameService {
       }, 5000);
 
       console.log(`Round ${this.currentRound.roundId} settled. Winner: ${this.currentRound.winningPool} pool`);
-      
+
       return this.currentRound;
     } catch (error) {
       console.error('Settle round error:', error);
@@ -461,7 +412,7 @@ class GameService {
   async getUserHistory(userId, guestId, limit = 10) {
     try {
       const query = {};
-      
+
       if (userId) {
         query['bets.userId'] = userId;
       } else if (guestId) {
@@ -475,9 +426,9 @@ class GameService {
         .limit(limit);
 
       const history = [];
-      
+
       for (const round of rounds) {
-        const userBets = round.bets.filter(bet => 
+        const userBets = round.bets.filter(bet =>
           (userId && bet.userId?.toString() === userId.toString()) ||
           (guestId && bet.guestId === guestId)
         );
@@ -501,6 +452,32 @@ class GameService {
     } catch (error) {
       console.error('Get user history error:', error);
       return [];
+    }
+  }
+
+  /**
+   * Broadcast current players list
+   */
+  broadcastPlayersUpdate() {
+    try {
+      if (!this.currentRound || !this.currentRound.bets) {
+        bus.broadcast('players', []);
+        return;
+      }
+
+      // Create players list from current round bets
+      const players = this.currentRound.bets.map(bet => ({
+        id: bet.userId || bet.guestId,
+        address: bet.address,
+        amount: bet.amount,
+        direction: bet.direction,
+        isDemo: bet.isDemo || false,
+        timestamp: bet.timestamp
+      }));
+
+      bus.broadcast('players', players);
+    } catch (error) {
+      console.error('Broadcast players update error:', error);
     }
   }
 }
